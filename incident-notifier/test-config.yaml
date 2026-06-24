@@ -1,0 +1,24 @@
+poll:
+  url: "http://localhost:8080/fake"
+  interval_seconds: 9999
+  timeout_seconds: 2
+  response:
+    items_path: ""
+    fields:
+      id: "id"
+      title: "title"
+      severity: "severity"
+  severities: ["critical", "warning", "info"]
+
+channels:
+  email_test:
+    type: "email"
+    smtp_host: "localhost"
+    smtp_port: 1027
+    use_starttls: false
+    from_addr: "test@localhost"
+    to_addrs:
+      - "test@localhost"
+
+state:
+  db_path: "./test-state.db"
