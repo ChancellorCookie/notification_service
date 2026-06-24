@@ -10,15 +10,26 @@ poll:
       severity: "severity"
   severities: ["critical", "warning", "info"]
 
+escalation:
+  notify_on_resolved: true
+  stages:
+    critical:
+      - { after_minutes: 0,  channels: ["email_gmail"] }
+      - { after_minutes: 15, channels: ["email_gmail"] }
+    warning:
+      - { after_minutes: 0,  channels: ["email_gmail"] }
+
 channels:
-  email_test:
+  email_gmail:
     type: "email"
-    smtp_host: "localhost"
-    smtp_port: 1027
-    use_starttls: false
-    from_addr: "test@localhost"
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    use_starttls: true
+    username: "${SMTP_USER}"
+    password: "${SMTP_PASS}"
+    from_addr: "${SMTP_USER}"
     to_addrs:
-      - "test@localhost"
+      - "${NOTIFY_TO}"
 
 state:
   db_path: "./test-state.db"
