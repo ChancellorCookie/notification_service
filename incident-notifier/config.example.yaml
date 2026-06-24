@@ -1,0 +1,76 @@
+# ----------------------------------------------------------------------------
+# Beispielkonfiguration fuer den Incident-Notifier (E-Mail-only Start).
+# Geheimnisse NICHT hier eintragen, sondern als ${VAR} referenzieren und in
+# /etc/incident-notifier/secrets.env setzen (chmod 600).
+# ----------------------------------------------------------------------------
+
+poll:
+  url: "https://monitoring.local/api/v1/incidents"
+  method: "GET"
+  interval_seconds: 30
+  timeout_seconds: 10
+  # true | false | "/etc/ssl/certs/interne-ca.pem"  (interne CA empfohlen statt false)
+  verify_tls: true
+
+  # Direktlink zum Incident im Tool. Aus API-Feld (response.fields.url) ODER
+  # hier als Vorlage mit {id}. Damit kann die Laborleitung direkt quittieren.
+  incident_url_template: "https://monitoring.local/incidents/{id}"
+
+  auth:
+    type: "bearer"            # bearer | basic | none
+    token: "${MONITORING_API_TOKEN}"
+
+  # An die tatsaechliche Antwortstruktur deiner Monitoring-Software anpassen!
+  response:
+    items_path: "data.incidents"   # gepunkteter Pfad zum Array; leer = Antwort IST das Array
+    fields:
+      id: "id"
+      title: "name"
+      severity: "severity"
+      source: "host"
+      description: "message"
+      timestamp: "created_at"
+      url: "permalink"             # optional: Direktlink-Feld der API (sonst Template oben)
+
+  # Nur diese Severities werden verarbeitet.
+  severities: ["critical", "warning"]
+
+# Eskalation = nur zeitbasierte Erinnerung, solange der Vorfall offen bleibt.
+# Quittierung passiert im Tool -> Vorfall verschwindet aus dem Feed -> Stopp.
+escalation:
+  notify_on_resolved: false        # true = kurze Entwarnung, wenn ein Vorfall verschwindet
+  stages:
+    critical:
+      - { after_minutes: 0,  channels: ["email_lab_lead"] }   # sofort
+      - { after_minutes: 15, channels: ["email_lab_lead"] }   # Erinnerung, falls noch offen
+      # spaeter moeglich: - { after_minutes: 30, channels: ["whatsapp_lab_lead"] }
+    warning:
+      - { after_minutes: 0,  channels: ["email_lab_lead"] }
+
+channels:
+  email_lab_lead:
+    type: "email"
+    smtp_host: "smtp.local"
+    smtp_port: 587
+    use_starttls: true
+    # use_ssl: true              # alternativ fuer SMTPS (Port 465)
+    username: "${SMTP_USER}"      # leer lassen fuer offenes internes Relay
+    password: "${SMTP_PASS}"
+    from_addr: "monitoring@lab.local"
+    to_addrs:
+      - "laborleitung@lab.local"
+
+  # Spaeter aktivierbar (Code liegt bereit) - siehe README zu WhatsApp:
+  # whatsapp_lab_lead:
+  #   type: "whatsapp_twilio"
+  #   account_sid: "${TWILIO_SID}"
+  #   auth_token: "${TWILIO_TOKEN}"
+  #   from_number: "whatsapp:+14155238886"
+  #   to_numbers: ["whatsapp:+4915112345678"]
+  #   content_sid: "${TWILIO_CONTENT_SID}"
+
+state:
+  db_path: "/var/lib/incident-notifier/state.db"
+
+logging:
+  level: "INFO"

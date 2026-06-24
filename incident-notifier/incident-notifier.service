@@ -1,0 +1,24 @@
+[Unit]
+Description=Incident Notifier (Monitoring -> E-Mail/WhatsApp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=incident-notifier
+Group=incident-notifier
+WorkingDirectory=/opt/incident-notifier
+EnvironmentFile=/etc/incident-notifier/secrets.env
+ExecStart=/opt/incident-notifier/venv/bin/python /opt/incident-notifier/run.py /etc/incident-notifier/config.yaml
+Restart=on-failure
+RestartSec=10
+# Haertung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/incident-notifier
+StateDirectory=incident-notifier
+
+[Install]
+WantedBy=multi-user.target
