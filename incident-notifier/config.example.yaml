@@ -81,11 +81,9 @@ escalation:
   notify_on_resolved: false          # true = kurze Entwarnung, wenn ein Vorfall verschwindet
   stages:
     error:
-      - { after_minutes: 0,  channels: ["email_lab_lead"] }   # sofort
-      - { after_minutes: 15, channels: ["email_lab_lead"] }   # Erinnerung
+      - { after_minutes: 0,  channels: ["email_lab_lead"] }
     alert:
       - { after_minutes: 0,  channels: ["email_lab_lead"] }
-      - { after_minutes: 30, channels: ["email_lab_lead"] }
     warning:
       - { after_minutes: 0,  channels: ["email_lab_lead"] }
 

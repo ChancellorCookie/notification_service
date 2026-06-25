@@ -260,13 +260,11 @@ if [ -n "$channel_list" ]; then
   notify_on_resolved: ${notify_resolved}
   stages:
     error:
-      - { after_minutes: 0,  channels: [${channel_list}] }
-      - { after_minutes: 15, channels: [${channel_list}] }
+      - { after_minutes: 0, channels: [${channel_list}] }
     alert:
-      - { after_minutes: 0,  channels: [${channel_list}] }
-      - { after_minutes: 30, channels: [${channel_list}] }
+      - { after_minutes: 0, channels: [${channel_list}] }
     warning:
-      - { after_minutes: 0,  channels: [${channel_list}] }"
+      - { after_minutes: 0, channels: [${channel_list}] }"
 fi
 
 channels_block=""
