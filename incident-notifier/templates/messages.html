@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Nachrichten-Templates{% endblock %}
+{% block breadcrumb %}Nachrichten{% endblock %}
+{% block content %}
+<h1>Nachrichten-Templates</h1>
+
+<style>
+.tpl-layout { display: flex; gap: 24px; }
+.tpl-main { flex: 1; min-width: 0; }
+.tpl-sidebar { width: 260px; flex-shrink: 0; }
+.tpl-sidebar .card { position: sticky; top: 24px; }
+.tpl-sidebar code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.tpl-sidebar dt { font-weight: 600; font-size: 13px; margin-top: 8px; }
+.tpl-sidebar dd { font-size: 12px; color: #666; margin-left: 0; margin-bottom: 4px; }
+.tpl-section { margin-bottom: 24px; }
+.tpl-section h3 { font-size: 14px; margin-bottom: 8px; color: #333; }
+.tpl-section textarea { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; min-height: 120px; }
+.tpl-section .hint { font-size: 11px; color: #999; margin-top: 4px; }
+</style>
+
+<form method="POST">
+<div class="tpl-layout">
+    <div class="tpl-main">
+
+        <div class="card tpl-section">
+            <h3>Alert-Betreff</h3>
+            <textarea name="alert_subject" rows="2" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('alert_subject') %}{{ templates.alert_subject }}{% endif %}</textarea>
+            <div class="hint">Built-in: [{severity_label}] [{device_name}] {title}</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>Alert-Body (E-Mail)</h3>
+            <textarea name="alert_body" rows="16" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('alert_body') %}{{ templates.alert_body }}{% endif %}</textarea>
+            <div class="hint">Built-in enthaelt Severity, Titel, Quelle, Geraet, Zeitpunkt, Status, ID, Schwellwerte, Flags, Flattern-Warnung, URL, Handlungsempfehlung und Beschreibung.</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>Entwarnung-Betreff</h3>
+            <textarea name="resolved_subject" rows="2" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('resolved_subject') %}{{ templates.resolved_subject }}{% endif %}</textarea>
+            <div class="hint">Built-in: [ENTWARNUNG] [{device_name}] {title}</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>Entwarnung-Body (E-Mail)</h3>
+            <textarea name="resolved_body" rows="6" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('resolved_body') %}{{ templates.resolved_body }}{% endif %}</textarea>
+            <div class="hint">Built-in enthaelt Titel, Quelle, Geraet und ID.</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>WhatsApp-Text</h3>
+            <textarea name="whatsapp_text" rows="8" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('whatsapp_text') %}{{ templates.whatsapp_text }}{% endif %}</textarea>
+            <div class="hint">Nur fuer Sandbox / 24h-Fenster. Produktiv: WhatsApp-Templates separat konfigurieren.</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Speichern</button>
+    </div>
+
+    <div class="tpl-sidebar">
+        <div class="card">
+            <h2 style="margin-top:0;">Platzhalter</h2>
+            <p class="help" style="margin-bottom:12px;">
+                In Templates mit <code>{'{name}'}</code> einfuegen.
+            </p>
+            <dl>
+                {% for var, desc in placeholders.items() %}
+                <dt><code>{'{'}{{ var }}{'}'}</code></dt>
+                <dd>{{ desc }}</dd>
+                {% endfor %}
+            </dl>
+        </div>
+    </div>
+</div>
+</form>
+{% endblock %}

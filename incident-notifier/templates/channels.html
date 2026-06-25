@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Kanäle{% endblock %}
+{% block breadcrumb %}Kanäle{% endblock %}
+{% block content %}
+<h1>Kanäle</h1>
+
+<form method="POST">
+{% set channel_list = channels.items() | list %}
+
+{% for name, ch in channel_list %}
+{% set idx = loop.index0 %}
+<fieldset>
+    <legend>{{ name }} ({{ ch.get('type', '?') }})</legend>
+
+    <input type="hidden" name="ch_{{ idx }}_name" value="{{ name }}">
+    <input type="hidden" name="ch_{{ idx }}_type" value="{{ ch.get('type', '') }}">
+
+    {% if ch.type == "email" %}
+        <div class="form-group">
+            <label>SMTP-Host</label>
+            <input type="text" name="ch_{{ idx }}_smtp_host" value="{{ ch.get('smtp_host', '') }}">
+        </div>
+        <div class="inline">
+            <div class="form-group" style="flex:1;">
+                <label>SMTP-Port</label>
+                <input type="number" name="ch_{{ idx }}_smtp_port" value="{{ ch.get('smtp_port', 587) }}">
+            </div>
+            <div class="form-group" style="flex:0 0 auto; padding-top: 20px;">
+                <label class="inline">
+                    <input type="checkbox" name="ch_{{ idx }}_use_starttls" value="1" {% if ch.get('use_starttls', True) %}checked{% endif %}>
+                    STARTTLS
+                </label>
+            </div>
+        </div>
+        <div class="inline">
+            <div class="form-group" style="flex:1;">
+                <label>Benutzername</label>
+                <input type="text" name="ch_{{ idx }}_username" value="{{ ch.get('username', '') }}" placeholder="${SMTP_USER}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Passwort</label>
+                <input type="password" name="ch_{{ idx }}_password" value="{{ ch.get('password', '') }}" placeholder="${SMTP_PASS}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Absender (From)</label>
+            <input type="text" name="ch_{{ idx }}_from_addr" value="{{ ch.get('from_addr', '') }}">
+        </div>
+        <div class="form-group">
+            <label>Empfänger (eine pro Zeile)</label>
+            <textarea name="ch_{{ idx }}_to_addrs" rows="3">{% for a in ch.get('to_addrs', []) %}{{ a }}
+{% endfor %}</textarea>
+        </div>
+
+    {% elif ch.type == "whatsapp_twilio" %}
+        <div class="inline">
+            <div class="form-group" style="flex:1;">
+                <label>Account SID</label>
+                <input type="text" name="ch_{{ idx }}_account_sid" value="{{ ch.get('account_sid', '') }}" placeholder="${TWILIO_SID}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Auth Token</label>
+                <input type="password" name="ch_{{ idx }}_auth_token" value="{{ ch.get('auth_token', '') }}" placeholder="${TWILIO_TOKEN}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Absender-Nummer (WhatsApp-Format)</label>
+            <input type="text" name="ch_{{ idx }}_from_number" value="{{ ch.get('from_number', '') }}" placeholder="whatsapp:+14155238886">
+        </div>
+        <div class="form-group">
+            <label>Empfänger-Nummern (eine pro Zeile)</label>
+            <textarea name="ch_{{ idx }}_to_numbers" rows="3">{% for n in ch.get('to_numbers', []) %}{{ n }}
+{% endfor %}</textarea>
+        </div>
+        <div class="form-group">
+            <label>Content SID (Template, optional)</label>
+            <input type="text" name="ch_{{ idx }}_content_sid" value="{{ ch.get('content_sid', '') }}" placeholder="${TWILIO_CONTENT_SID}">
+        </div>
+
+    {% elif ch.type == "whatsapp_meta" %}
+        <div class="inline">
+            <div class="form-group" style="flex:1;">
+                <label>API-Version</label>
+                <input type="text" name="ch_{{ idx }}_api_version" value="{{ ch.get('api_version', 'v21.0') }}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Phone Number ID</label>
+                <input type="text" name="ch_{{ idx }}_phone_number_id" value="{{ ch.get('phone_number_id', '') }}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Access Token</label>
+            <input type="password" name="ch_{{ idx }}_access_token" value="{{ ch.get('access_token', '') }}" placeholder="${META_WA_TOKEN}">
+        </div>
+        <div class="form-group">
+            <label>Empfänger-Nummern (eine pro Zeile)</label>
+            <textarea name="ch_{{ idx }}_to_numbers" rows="3">{% for n in ch.get('to_numbers', []) %}{{ n }}
+{% endfor %}</textarea>
+        </div>
+        <div class="inline">
+            <div class="form-group" style="flex:1;">
+                <label>Template-Name</label>
+                <input type="text" name="ch_{{ idx }}_template_name" value="{{ ch.get('template_name', '') }}">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Template-Sprache</label>
+                <input type="text" name="ch_{{ idx }}_template_language" value="{{ ch.get('template_language', 'de') }}">
+            </div>
+        </div>
+    {% endif %}
+</fieldset>
+{% endfor %}
+
+{% if not channel_list %}
+<p style="color:#888; margin-bottom:16px;">Noch keine Kanäle konfiguriert.</p>
+{% endif %}
+
+<div class="card">
+    <h2>Neuen Kanal hinzufügen</h2>
+    <div class="inline">
+        <div class="form-group" style="flex:1;">
+            <label>Name</label>
+            <input type="text" name="new_channel_name" placeholder="z.B. email_lab_lead">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Typ</label>
+            <select name="new_channel_type">
+                <option value="">-- Typ wählen --</option>
+                <option value="email">E-Mail (SMTP)</option>
+                <option value="whatsapp_twilio">WhatsApp (Twilio)</option>
+                <option value="whatsapp_meta">WhatsApp (Meta Cloud API)</option>
+            </select>
+        </div>
+    </div>
+    <span class="help">Nach dem Speichern erscheint der neue Kanal im Formular und kann bearbeitet werden.</span>
+</div>
+
+<button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}

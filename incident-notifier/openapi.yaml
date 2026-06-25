@@ -1,0 +1,3224 @@
+openapi: 3.0.3
+info:
+  title: LCC API
+  description: API for the LCC backend
+  version: 1.0.0
+  contact:
+    name: Waldner Laboreinrichtungen
+servers:
+  - url: https://lcc.ieu.local/api/v2
+tags:
+  - name: Rooms
+    description: Endpoints to manage rooms
+  - name: Eco
+    description: Endpoints to retrieve Information about the lab efficiency
+  - name: Automation
+    description: Entpoints to read and manage automations for integrated LADS devices
+  - name: Incidents
+    description: Endpoints to retrieve and manage incidents
+  - name: LADS
+    description: Interface to access the LADS device model in a REST/JSON representation
+  - name: History
+    description: Historical data access for LADS functions
+  - name: Discovery
+    description: OPC UA Server Discovery und Credentials Management
+paths:
+  /rooms/:
+    get:
+      operationId: getRooms
+      tags:
+        - Rooms
+      summary: Get all rooms
+      description: Retrieve a list of all rooms
+      security:
+        - oauth2:
+            - Rooms.Read
+      responses:
+        '200':
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomList'
+    post:
+      operationId: createRoom
+      tags:
+        - Rooms
+      summary: Create a new room
+      description: Create a new room with the given ID and metadata
+      security:
+        - oauth2:
+            - Rooms.Manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomCreateInput'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '409':
+          description: Room already exists
+  '/rooms/{roomId}':
+    get:
+      operationId: getRoom
+      tags:
+        - Rooms
+      summary: Get room by ID
+      description: Retrieve a specific room by its ID
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+      security:
+        - oauth2:
+            - Rooms.Read
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteRoom
+      tags:
+        - Rooms
+      summary: Delete a room
+      description: Delete a room and its monitoring references
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+      security:
+        - oauth2:
+            - Rooms.Manage
+      responses:
+        '200':
+          description: Room deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+        '404':
+          description: Room not found
+  '/rooms/{roomId}/meta':
+    patch:
+      operationId: updateRoomMeta
+      tags:
+        - Rooms
+      summary: Update room meta data
+      description: >-
+        Update the metadata of a specific room, only submitted properties will be changed.
+
+        To remove metadata, send a empty string.
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomMetaInput'
+      security:
+        - oauth2:
+            - Rooms.Read
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/eco/{roomId}/stats':
+    get:
+      operationId: getRoomStats
+      tags:
+        - Eco
+      summary: Get eco stats for a room
+      description: Retrieve eco statistics for a specific room
+      security:
+        - oauth2:
+            - Rooms.Read
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Eco stats for the room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcoStats'
+  '/eco/{roomId}/recommendations':
+    get:
+      operationId: getRoomRecommendations
+      tags:
+        - Eco
+      summary: Get eco recommendations for a room
+      description: Retrieve eco recommendations for a specific room
+      security:
+        - oauth2:
+            - Rooms.Read
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Eco recommendations for the room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EcoRecommendations'
+  /automations/:
+    get:
+      operationId: getAutomations
+      tags:
+        - Automation
+      summary: Get automations
+      description: Retrieve automations with optional filtering by room and device
+      security:
+        - oauth2:
+            - Automations.Read
+      parameters:
+        - name: room
+          in: query
+          description: Filter by room ID
+          required: false
+          schema:
+            type: string
+        - name: device
+          in: query
+          description: Filter by device ID (can be multiple)
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationList'
+    post:
+      operationId: createAutomation
+      tags:
+        - Automation
+      summary: Create a new automation
+      description: Create a new automation
+      security:
+        - oauth2:
+            - Automations.Manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationInput'
+      responses:
+        '201':
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+  '/automations/{automationId}':
+    patch:
+      operationId: updateAutomation
+      tags:
+        - Automation
+      summary: Update an automation
+      description: Update an existing automation
+      security:
+        - oauth2:
+            - Automations.Write
+      parameters:
+        - name: automationId
+          in: path
+          required: true
+          description: Automation ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationInput'
+      responses:
+        '200':
+          description: Automation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Automation'
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteAutomation
+      tags:
+        - Automation
+      summary: Delete an automation
+      description: Delete an existing automation
+      security:
+        - oauth2:
+            - Automations.Manage
+      parameters:
+        - name: automationId
+          in: path
+          required: true
+          description: Automation ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Automation deleted successfully
+        '404':
+          description: Automation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /incidents/:
+    get:
+      operationId: getIncidents
+      tags:
+        - Incidents
+      summary: Read incidents
+      description: 'Retrieve list of incidents, filtered by device and/or room'
+      security:
+        - oauth2:
+            - Incidents.Read
+      parameters:
+        - name: room
+          in: query
+          description: Return only incidents that appeared in the specified room
+          schema:
+            type: string
+        - name: context
+          in: query
+          description: "Filter the result set to incidents, that are attached to the given context. This is a prefix filter and will also match context below the given string. A filter on `DeviceSet/S1-1016939` will also return incidents with context `DeviceSet/S1-1016939/FunctionalUnitSet/Fumehood/FunctionSet/Airflow`.\nIf Functional Units are linked into a device, the filter also return the incidents of the origin device.  \nExample:   If following link is configured: `DeviceSet/S1-1016939/FunctionalUnitSet/SensorPanel -> DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200`   and the context parameter contains `DeviceSet/S1-1016939`, the result will also contain incidents from `DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/1` since the Function also appear in the context of the queried device.\n"
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/IncidentSeverity'
+          explode: true
+          description: filter incidents by severity
+        - name: active
+          in: query
+          schema:
+            type: boolean
+          description: filter for active / inactive incidents
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/IncidentStatus'
+          explode: true
+          description: filter incident by current status
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+            enum:
+              - open
+              - resolved
+          description: >
+            Operator lifecycle filter (strict-mode aware): "open" = not yet resolved/done, "resolved" = done. Independent of `status`.
+
+        - name: limit
+          in: query
+          description: >
+            Maximum number of items to return. Used together with `offset` for pagination.
+
+          schema:
+            type: integer
+            minimum: 0
+            default: 20
+        - name: offset
+          in: query
+          description: >
+            Number of items to skip before starting to return results. Defines the starting position of the returned slice when used together with `limit`.
+
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Incident Query Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentQueryResponse'
+  '/incidents/{incidentId}':
+    get:
+      operationId: getIncident
+      tags:
+        - Incidents
+      summary: Read incident
+      description: Retrieve an incidents by id
+      security:
+        - oauth2:
+            - Incidents.Read
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          description: Incident ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentResponse'
+  '/incidents/{incidentId}/history':
+    get:
+      operationId: getIncidentHistory
+      tags:
+        - Incidents
+      summary: Read all status changes of an incident
+      description: >
+        Returns all Status changes of an incident and their origin. Items are ordered by time
+
+      security:
+        - oauth2:
+            - Incidents.Read
+      parameters:
+        - name: incidentId
+          in: path
+          description: Incident ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of IncidentStatus items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentHistoryResponse'
+  /lads/DeviceSet:
+    get:
+      operationId: getDevices
+      tags:
+        - LADS
+      description: Returns global DeviceSet (deviceIds are suffixed with serverId)
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - name: hierarchicalLocation
+          in: query
+          schema:
+            type: string
+          description: filter device for the hirarchical location attribute
+          example: DE/Wangen/Building_24/24_00_00_rechts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UALADSDevice'
+  '/lads/DeviceSet/{deviceId}':
+    get:
+      operationId: getDevice
+      tags:
+        - LADS
+      description: Returns Device details (deviceIds are suffixed with serverId)
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+      responses:
+        '200':
+          description: successfull operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UALADSDevice'
+  '/lads/DeviceSet/{deviceId}/FunctionalUnitSet':
+    get:
+      operationId: getFunctionalUnits
+      tags:
+        - LADS
+      security:
+        - oauth2:
+            - Devices.Read
+      description: Returns FunctionalUnitSet of device
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UALADSFunctionalUnit'
+  '/lads/DeviceSet/{deviceId}/FunctionalUnitSet/{functionalUnitId}':
+    get:
+      operationId: getFunctionalUnit
+      tags:
+        - LADS
+      security:
+        - oauth2:
+            - Devices.Read
+      description: Returns FunctionalUnitSet details
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UALADSFunctionalUnit'
+  '/lads/DeviceSet/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet':
+    get:
+      operationId: getFunctions
+      tags:
+        - LADS
+      security:
+        - oauth2:
+            - Devices.Read
+      description: Returns FunctionSet of FunctionalUnit
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UAFunction'
+  '/lads/DeviceSet/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet/{functionId}':
+    get:
+      operationId: getFunction
+      tags:
+        - LADS
+      security:
+        - oauth2:
+            - Devices.Read
+      description: Returns Function details
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UAFunction'
+  '/lads/DeviceSet/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet/{functionId}/alarmMonitor':
+    put:
+      operationId: updateAlarmMonitor
+      tags:
+        - LADS
+      description: Updates alarm monitor settings for a Function
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlarmMonitorSettings'
+      responses:
+        '200':
+          description: Alarm monitor updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UAFunction'
+        '403':
+          description: Alarm limits are read-only (configured on the device)
+        '404':
+          description: Function not found
+    delete:
+      operationId: deleteAlarmMonitor
+      tags:
+        - LADS
+      description: Removes user-defined alarm monitor settings for a Function
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+      responses:
+        '204':
+          description: Alarm monitor settings removed successfully
+        '403':
+          description: Alarm limits are read-only (configured on the device)
+        '404':
+          description: Function not found
+  /lads/override:
+    post:
+      operationId: setOverride
+      tags:
+        - LADS
+      description: Sets a value override on any OPC UA browse path
+      security:
+        - oauth2:
+            - Devices.Write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValueOverrideInput'
+      responses:
+        '200':
+          description: Override set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValueOverride'
+    delete:
+      operationId: removeOverride
+      tags:
+        - LADS
+      description: Removes a value override
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - name: browsePath
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The browse path of the override to remove
+      responses:
+        '200':
+          description: Override removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: boolean
+  /lads/overrides:
+    get:
+      operationId: getOverrides
+      tags:
+        - LADS
+      description: Lists all value overrides
+      security:
+        - oauth2:
+            - Devices.Read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValueOverride'
+  /lads/organized-functional-unit:
+    post:
+      operationId: createOrganizedFunctionalUnit
+      tags:
+        - LADS
+      description: >
+        Creates an OPC UA "Organizes" reference so that a FunctionalUnit from one device appears in another device's FunctionalUnitSet. Example: FreezerUnit from FreezerDevice@0815 is organized by myViscometer@4711's FunctionalUnitSet.
+
+      security:
+        - oauth2:
+            - Devices.Write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizedFunctionalUnitInput'
+      responses:
+        '200':
+          description: Mapping created (or updated if already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizedFunctionalUnit'
+    delete:
+      operationId: deleteOrganizedFunctionalUnit
+      tags:
+        - LADS
+      description: Soft-deletes an organized FunctionalUnit mapping
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - name: sourceBrowsePath
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Browse path of the source FunctionalUnit
+        - name: targetBrowsePath
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Browse path of the target FunctionalUnitSet
+      responses:
+        '200':
+          description: Mapping removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: boolean
+        '404':
+          description: Mapping not found or already deleted
+  /lads/organized-functional-units:
+    get:
+      operationId: getOrganizedFunctionalUnits
+      tags:
+        - LADS
+      description: Lists all active organized FunctionalUnit mappings
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - name: targetBrowsePath
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional filter by target FunctionalUnitSet browse path
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizedFunctionalUnit'
+  '/lads/alarms/{incidentId}/ack':
+    post:
+      operationId: ackAlarm
+      tags:
+        - LADS
+      summary: Acknowledge an alarm incident
+      description: >
+        Resolves the incidentId (stable hash) to its OPC UA source node and raises an AuditConditionAcknowledgeEventType on it. The historian persists the event, which flips the IncidentsService state-fold to ACKNOWLEDGED on next read.
+
+      security:
+        - oauth2:
+            - Incidents.Manage
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          description: Stable incident id (SHA-1 of the source node id)
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckAlarmRequest'
+      responses:
+        '204':
+          description: Acknowledged
+        '404':
+          description: Incident or source node not found
+  '/lads/alarms/{incidentId}/confirm':
+    post:
+      operationId: confirmAlarm
+      tags:
+        - LADS
+      summary: Confirm an alarm incident (follow-up to acknowledge)
+      description: >
+        Raises an AuditConditionConfirmEventType on the alarm's source node. State-fold flips to CONFIRMED.
+
+      security:
+        - oauth2:
+            - Incidents.Manage
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmAlarmRequest'
+      responses:
+        '204':
+          description: Confirmed
+        '404':
+          description: Incident or source node not found
+  '/lads/alarms/{incidentId}/report':
+    post:
+      operationId: reportAlarm
+      tags:
+        - LADS
+      summary: 'Report an alarm incident (escalation, distinct from Ack)'
+      description: >
+        Raises an AuditConditionReportedEventType (Essentim companion spec, ns=…;i=15001) on the alarm's source node. Independent of Ack and Confirm — represents an escalation/notification step in the operator workflow. State-fold flips to REPORTED.
+
+      security:
+        - oauth2:
+            - Incidents.Manage
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportAlarmRequest'
+      responses:
+        '204':
+          description: Reported
+        '404':
+          description: Incident or source node not found
+  '/lads/alarms/{incidentId}/reset':
+    post:
+      operationId: resetAlarm
+      tags:
+        - LADS
+      summary: Reset a latched alarm
+      description: >
+        Calls the Reset (or Reset2 if comment provided) method on the alarm's OPC UA condition node. Clears LatchedState and re-evaluates the input; the alarm transitions to inactive when the underlying condition is gone, otherwise it stays active.
+
+      security:
+        - oauth2:
+            - Incidents.Manage
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetAlarmRequest'
+      responses:
+        '204':
+          description: Reset accepted
+        '404':
+          description: Incident or source node not found
+        '409':
+          description: Source node has no Reset method
+  '/lads/alarms/{incidentId}/latched':
+    patch:
+      operationId: setAlarmLatched
+      tags:
+        - LADS
+      summary: Toggle the LatchedState property of an alarm
+      description: >
+        Sets the LatchedState (TwoStateVariable). When TRUE, the alarm cannot deactivate until the next Reset call. When FALSE, normal active/ inactive transitions resume.
+
+      security:
+        - oauth2:
+            - Incidents.Manage
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAlarmLatchedRequest'
+      responses:
+        '204':
+          description: Updated
+        '404':
+          description: Incident or source node not found
+        '409':
+          description: Alarm has no LatchedState property
+  '/lads/history/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet/{functionId}/values':
+    get:
+      operationId: readHistoryValue
+      tags:
+        - History
+      summary: Read raw historical values
+      description: >-
+        Returns raw historical data points for a function's SensorValue or CurrentValue
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+        - $ref: '#/components/parameters/ParamStartTime'
+        - $ref: '#/components/parameters/ParamEndTime'
+        - $ref: '#/components/parameters/ParamNumValuesPerNode'
+        - $ref: '#/components/parameters/ParamContinuationPoint'
+      responses:
+        '200':
+          description: Historical values retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryReadResponse'
+        '404':
+          description: Function or historical data not found
+  '/lads/history/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet/{functionId}/values/export':
+    get:
+      operationId: exportHistoryValues
+      tags:
+        - History
+      summary: Export historical values as CSV
+      description: >-
+        Streams all historical data points as CSV for data export over large time ranges. Uses PostgreSQL cursors for constant memory usage.
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+        - $ref: '#/components/parameters/ParamStartTime'
+        - $ref: '#/components/parameters/ParamEndTime'
+      responses:
+        '200':
+          description: CSV file with historical data
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Function or historical data not found
+  '/lads/history/{deviceId}/FunctionalUnitSet/{functionalUnitId}/FunctionSet/{functionId}/aggregate':
+    get:
+      operationId: readAggregateValue
+      tags:
+        - History
+      summary: Read aggregated historical values
+      description: >-
+        Returns aggregated historical data (Average, Min, Max, etc.) for a function
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - $ref: '#/components/parameters/ParamDeviceId'
+        - $ref: '#/components/parameters/ParamFunctionalUnitId'
+        - $ref: '#/components/parameters/ParamFunctionId'
+        - $ref: '#/components/parameters/ParamStartTime'
+        - $ref: '#/components/parameters/ParamEndTime'
+        - $ref: '#/components/parameters/ParamAggregateFunction'
+        - $ref: '#/components/parameters/ParamProcessingInterval'
+        - $ref: '#/components/parameters/ParamVariablePath'
+      responses:
+        '200':
+          description: Aggregated values retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregateReadResponse'
+        '404':
+          description: Function or historical data not found
+  /discovery/servers:
+    get:
+      operationId: getDiscoveredServers
+      tags:
+        - Discovery
+      summary: Liste aller entdeckten OPC UA Server
+      description: >-
+        Gibt nur Online-Server zurück. Offline-Server bleiben in der DB (für Credential-Zuordnung), werden aber nicht angezeigt.
+      security:
+        - oauth2:
+            - Devices.Read
+      responses:
+        '200':
+          description: Liste der Server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveredServersResponse'
+    post:
+      operationId: upsertManualServer
+      tags:
+        - Discovery
+      summary: Manuellen Server hinzufügen/aktualisieren
+      description: >-
+        Fügt einen manuellen Server hinzu oder aktualisiert einen bestehenden (Upsert via ID oder endpointUrl)
+      security:
+        - oauth2:
+            - Devices.Write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualServerInput'
+      responses:
+        '200':
+          description: Server gespeichert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualServerResponse'
+        '400':
+          description: Ungültige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error1'
+  '/discovery/servers/{serverId}':
+    delete:
+      operationId: deleteManualServer
+      tags:
+        - Discovery
+      summary: Manuellen Server entfernen
+      description: >-
+        Entfernt einen manuell hinzugefügten Server. Entdeckte Server können nicht gelöscht werden.
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          description: Server UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Server gelöscht
+        '404':
+          description: Server nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error1'
+  '/discovery/servers/{serverId}/credentials':
+    get:
+      operationId: getServerCredentials
+      tags:
+        - Discovery
+      summary: Credentials-Metadaten abrufen
+      description: Gibt Metadaten zu den Credentials zurück (ohne Passwörter/Private Keys)
+      security:
+        - oauth2:
+            - Devices.Read
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          description: Server UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Credentials-Metadaten
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialsMetaResponse'
+        '404':
+          description: Keine Credentials gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error1'
+    put:
+      operationId: upsertServerCredentials
+      tags:
+        - Discovery
+      summary: Credentials speichern
+      description: Speichert Credentials für diesen Server
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          description: Server UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialsInput'
+      responses:
+        '200':
+          description: Credentials gespeichert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialsMetaResponse'
+        '400':
+          description: Ungültige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error1'
+    delete:
+      operationId: deleteServerCredentials
+      tags:
+        - Discovery
+      summary: Credentials löschen
+      description: Löscht die Credentials für diesen Server
+      security:
+        - oauth2:
+            - Devices.Write
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          description: Server UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Credentials gelöscht
+        '404':
+          description: Credentials nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error1'
+components:
+  schemas:
+    RoomMetaInput:
+      type: object
+      properties:
+        contact:
+          $ref: '#/components/schemas/RoomContact'
+        number:
+          type: string
+          description: Room number
+          example: A-101
+        name:
+          type: string
+          description: Room name
+          example: Entwicklungslabor
+        monitoring:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMonitoring'
+    RoomContact:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Contact person name
+        email:
+          type: string
+          format: email
+          description: Contact email address
+        details:
+          type: string
+          description: Additional contact details
+    RoomAirflow:
+      type: object
+      properties:
+        min:
+          type: number
+          nullable: true
+          description: Minimum airflow value
+        max:
+          type: number
+          nullable: true
+          description: Maximum airflow value
+      required:
+        - min
+        - max
+    RoomMonitoring:
+      type: object
+      properties:
+        name:
+          type: string
+          description: monitoring function name override
+        path:
+          type: string
+          description: Path to LADS function to show in monitoring
+      required:
+        - path
+    Room:
+      type: object
+      properties:
+        roomId:
+          type: string
+          description: Room ID
+          example: entwicklungslabor
+        contact:
+          $ref: '#/components/schemas/RoomContact'
+        number:
+          type: string
+          description: Room number
+          example: A-101
+        name:
+          type: string
+          description: Room name
+          example: Entwicklungslabor
+        airflow:
+          $ref: '#/components/schemas/RoomAirflow'
+        monitoring:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMonitoring'
+          description: Monitoring functions for this room
+      required:
+        - roomId
+        - number
+        - contact
+        - airflow
+        - monitoring
+    Meta:
+      type: object
+      properties:
+        total:
+          type: number
+          description: Total number of items
+        page:
+          type: number
+          description: Current page number
+        perPage:
+          type: number
+          description: Items per page
+    RoomList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+        meta:
+          $ref: '#/components/schemas/Meta'
+      example:
+        data:
+          - roomId: entwicklungslabor
+            contact:
+              name: Moriz Walter
+              email: moriz.walter@waldner.de
+              details: T.345
+            number: A-101
+            name: Entwicklungslabor
+            airflow:
+              min: 1200
+              max: 2400
+            monitoring:
+              - name: Room Temp
+                path: >-
+                  DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/1
+              - path: >-
+                  DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/2
+          - roomId: office-essentim
+            contact:
+              name: Bruno Schliersmair
+              email: bruno.schliersmair@essentimm.com
+              details: Großraum
+            number: B-201
+            name: Office Essentim
+            airflow:
+              min: 800
+              max: 1800
+            monitoring:
+              - name: Room Temp
+                path: >-
+                  DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/1
+        meta:
+          total: 2
+          page: 1
+          perPage: 10
+    RoomResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Room'
+      example:
+        data:
+          roomId: entwicklungslabor
+          contact:
+            name: Moriz Walter
+            email: moriz.walter@waldner.de
+            details: T.345
+          number: A-101
+          name: Entwicklungslabor
+          airflow:
+            min: 1200
+            max: 2400
+          monitoring:
+            - name: Room Temp
+              path: >-
+                DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/1
+            - path: >-
+                DeviceSet/SP2DC800200/FunctionalUnitSet/SP2DC800200/FunctionSet/2
+    RoomCreateInput:
+      type: object
+      required:
+        - roomId
+        - name
+      properties:
+        roomId:
+          type: string
+          description: Hierarchical room ID (e.g. DE/Munich/Lab1)
+        name:
+          type: string
+          description: Room display name
+        number:
+          type: string
+          description: Room number
+        contact:
+          $ref: '#/components/schemas/RoomContact'
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+    EcoStats:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            usage:
+              type: object
+              properties:
+                total:
+                  type: number
+                high:
+                  type: number
+                low:
+                  type: number
+                'off':
+                  type: number
+                open:
+                  type: number
+            messages:
+              type: number
+    EcoRecommendations:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              priority:
+                type: string
+                enum:
+                  - low
+                  - medium
+                  - high
+    AutomationBase:
+      type: object
+      properties:
+        roomId:
+          type: string
+          description: Room ID where automation is active
+        deviceId:
+          type: string
+          description: Device ID for the automation
+        name:
+          type: string
+          description: Automation name
+        description:
+          type: string
+          description: Automation description
+        enabled:
+          type: boolean
+          description: Indicates if automation is enabled
+        schedule:
+          $ref: '#/components/schemas/AutomationSchedule'
+        targetFunction:
+          $ref: '#/components/schemas/AutomationFunction'
+      required:
+        - roomId
+        - deviceId
+        - name
+        - schedule
+        - targetFunction
+    Automation:
+      allOf:
+        - $ref: '#/components/schemas/AutomationBase'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Unique automation ID
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              nullable: true
+              format: date-time
+          required:
+            - id
+            - created_at
+            - updated_at
+    AutomationSchedule:
+      type: object
+      properties:
+        start:
+          type: string
+          format: time
+          nullable: true
+          example: '08:00:00'
+          description: 'Time of day (HH:mm:ss) when to start the automation'
+        end:
+          type: string
+          format: time
+          nullable: true
+          example: '18:00:00'
+          description: 'Time of day (HH:mm:ss) when to stop the automation'
+        period:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+          description: Days of Week when to execute the automation (Starting at Monday)
+      required:
+        - start
+        - end
+        - period
+    AutomationFunction:
+      type: object
+      properties:
+        path:
+          type: string
+          example: DeviceSet/S1-1016939/FunctionalUnitSet/Fumehood/FunctionSet/Light
+          description: >-
+            Browse Path to a LADSControlFunction which shall be executed or modified with a targetValue
+        targetValueStart:
+          type: string
+          nullable: true
+          example: 'On'
+          description: >-
+            TargetValue to set when automation is started. If null, the LADS start() function will be called
+        targetValueEnd:
+          type: string
+          nullable: true
+          example: 'Off'
+          description: >-
+            TargetValue to set when automation is stopped. If null, the LADS stop() function will be called
+      required:
+        - path
+        - targetValueStart
+        - targetValueEnd
+    AutomationInput:
+      allOf:
+        - $ref: '#/components/schemas/AutomationBase'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Optional automation ID (if client-side generated)
+      type: object
+      properties:
+        roomId:
+          type: string
+          description: Room ID where automation is active
+        deviceId:
+          type: string
+          description: Device ID for the automation
+        name:
+          type: string
+          description: Automation name
+        description:
+          type: string
+          description: Automation description
+      required:
+        - roomId
+        - deviceId
+        - name
+    AutomationList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Automation'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+              description: Total number of items
+            page:
+              type: integer
+              description: Current page number
+            perPage:
+              type: integer
+              description: Items per page
+            query:
+              type: object
+              properties:
+                room:
+                  type: string
+                  nullable: true
+                  description: Room filter (echoed from request)
+                device:
+                  type: array
+                  items:
+                    type: string
+                  description: Device filter (echoed from request)
+    Incident:
+      type: object
+      properties:
+        incidentId:
+          type: string
+          description: UUID that identifies the incident
+          example: bd573770-a23c-44e1-9125-3bd33eb0e44d
+        type:
+          type: string
+          description: unique string that represents the incident type
+          example: de.waldner.ac4.w_sc_ls_verd_warn
+        code:
+          type: string
+          description: Manufacturer code that represents the incident type
+        message:
+          type: string
+          description: Human readable message that describes the incident
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        maxSeverity:
+          allOf:
+            - $ref: '#/components/schemas/IncidentSeverity'
+          description: >
+            Worst severity the episode ever reached (sharpest escalation). `severity` is the CURRENT grade of the alarm; `maxSeverity` stays at the peak even after the alarm de-escalates or resolves. Use this for the worst-grade headline/lamp.
+
+        active:
+          type: boolean
+          description: Indicates if the incident is currently active or has been resolved
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        context:
+          type: string
+          description: Path the device or function that is affected by the incident
+          example: DeviceSet/S1-1016939/FunctionalUnitSet/Fumehood/FunctionSet/Airflow
+        eventId:
+          type: string
+          description: Event that initiated this incident.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        help:
+          type: string
+          description: Advise how to fix or handle the incident
+          nullable: true
+        comment:
+          type: string
+          description: >
+            Last operator comment recorded against this incident's episode — populated from Acknowledge/Confirm/Reset audit events. Empty when no comment has been written yet.
+
+          nullable: true
+        acknowledged:
+          type: boolean
+          description: >
+            True if any AuditConditionAcknowledge event was recorded during this episode. Independent of `confirmed` — both can be true when the operator first acked, then confirmed.
+
+        confirmed:
+          type: boolean
+          description: >
+            True if any AuditConditionConfirm event was recorded during this episode.
+
+        reported:
+          type: boolean
+          description: >
+            True if any AuditConditionReportedEventType (Essentim companion spec, ns=…;i=15001) event was recorded during this episode. Independent of `acknowledged` and `confirmed`. Sticky.
+
+        highHighLimit:
+          type: number
+          description: Critical-high threshold currently configured for the source.
+        highLimit:
+          type: number
+          description: Warning-high threshold currently configured for the source.
+        lowLimit:
+          type: number
+          description: Warning-low threshold currently configured for the source.
+        lowLowLimit:
+          type: number
+          description: Critical-low threshold currently configured for the source.
+        flapCount:
+          type: integer
+          description: >
+            Number of Part-9 ConditionBranches folded into this episode — i.e. how many times the alarm flapped (active→normal while un-acked) within the episode window. Only set when the source actually flapped (≥ MIN_FLAP_RUN); absent otherwise. Branches are NOT surfaced as separate incidents; they roll up here plus into the acknowledged/confirmed/reported flags.
+
+          minimum: 4
+        strictAudited:
+          type: boolean
+          description: >
+            Whether this alarm needs an explicit Confirm to close (strict OPC-UA A&C: New→Ack→Confirm) or whether Acknowledge is the terminal action (New→Ack). Derived from the OPC-UA ConfirmedState presence (decided per alarm in the proxy installer). When false, the UI must not require/offer Confirm — Acknowledge alone closes the incident.
+
+      required:
+        - incidentId
+        - type
+        - message
+        - severity
+        - active
+        - status
+        - context
+        - createdAt
+        - updatedAt
+        - closedAt
+    IncidentHistory:
+      type: object
+      properties:
+        incidentId:
+          type: string
+          description: UUID of the updated incident
+          example: bd573770-a23c-44e1-9125-3bd33eb0e44d
+        updatedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        origin:
+          type: string
+          enum:
+            - source
+            - user
+            - service
+          description: Indicates who or what initiated the status update
+        originId:
+          type: string
+          description: Id of the user/device that initiated the status update
+        message:
+          type: string
+          description: >
+            The event's message — for ack/confirm/reset events this is the operator-supplied comment; for alarm-state events it's the condition message ("Condition is X and state is HighHigh"). Empty when the source event had no message.
+
+          nullable: true
+        flapCount:
+          type: integer
+          description: >
+            Set on synthetic entries that aggregate a run of adjacent NEW/RESOLVED transitions (alarm value oscillating around its threshold). When present, this single row represents `flapCount` collapsed source events; `updatedAt` is the newest of the run and `flapStartedAt` is the oldest. Absent on regular entries.
+
+          minimum: 4
+        flapStartedAt:
+          type: string
+          format: date-time
+          description: >
+            Timestamp of the oldest event in a collapsed flap-run. Only set together with `flapCount`.
+
+      required:
+        - incidentId
+        - updatedAt
+        - status
+    IncidentHistoryInput:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        message:
+          type: string
+          description: |
+            additional message to justify the status change
+      required:
+        - status
+    IncidentStatus:
+      type: string
+      enum:
+        - NEW
+        - RESOLVED
+        - ACKNOWLEDGED
+        - CONFIRMED
+        - REPORTED
+        - CLOSED
+        - UPDATED
+      description: |
+        Status of an incident:
+          * NEW: Is still active
+          * RESOLVED: Underlaying alarm has normalized. Incident needs no further user interaction
+          * ACKNOWLEDGED: User has acknowledged (AuditConditionAcknowledge) the alarm — taking ownership.
+          * CONFIRMED: User has confirmed (AuditConditionConfirm) the alarm — declaring it handled.
+          * REPORTED: User has reported (AuditConditionReportedEventType — Essentim companion spec) the alarm — escalation/notification step, distinct from Ack.
+          * CLOSED: Incident has been closed by user, underlaying alarm may be active or not
+          * UPDATED: Generic operator/service audit event (e.g. alarm thresholds changed via the override API); detail is in `message`.
+    IncidentSeverity:
+      type: string
+      enum:
+        - NOTICE
+        - INFO
+        - WARNING
+        - ALERT
+        - ERROR
+      description: Severity of an incident
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        offset:
+          type: integer
+          description: Number of items skipped before the returned results
+        limit:
+          type: integer
+          description: Maximum number of items returned
+      required:
+        - total
+        - offset
+        - limit
+    IncidentResponse:
+      $ref: '#/components/schemas/Incident'
+    IncidentHistoryResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentHistory'
+        meta:
+          type: object
+          properties:
+            items:
+              $ref: '#/components/schemas/PaginationMeta'
+    IncidentQueryResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Incident'
+        meta:
+          type: object
+          properties:
+            items:
+              $ref: '#/components/schemas/PaginationMeta'
+            query:
+              $ref: '#/components/schemas/IncidentQueryMeta'
+          required:
+            - items
+            - query
+    IncidentQueryMeta:
+      type: object
+      properties:
+        room:
+          type: string
+          description: Room query condition that has been applied to the result
+        context:
+          type: string
+          description: Device query condition that has been applied to the result
+        active:
+          type: boolean
+          description: >-
+            Device query condition that has been applied to filter for active state
+        severity:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentSeverity'
+          description: Severity filter that has been applied to the result
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentStatus'
+    IncidentInput:
+      type: object
+      description: Input for creating a new incident
+      properties:
+        type:
+          type: string
+          description: Unique string that represents the incident type
+          example: alarm.threshold.high
+        code:
+          type: string
+          description: Manufacturer code that represents the incident type
+        message:
+          type: string
+          description: Human readable message that describes the incident
+          example: 'Threshold alarm: High (limit: 85.0)'
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        roomId:
+          type: string
+          description: Room that is affected by the incident
+          example: R1.01
+        context:
+          type: string
+          description: Path to the device or function that is affected by the incident
+          example: >-
+            DeviceSet/S1-1016939/FunctionalUnitSet/Fumehood/FunctionSet/Temperature
+        help:
+          type: string
+          description: Advise how to fix or handle the incident
+      required:
+        - type
+        - message
+        - severity
+        - roomId
+        - context
+    AckAlarmRequest:
+      type: object
+      title: AckAlarmRequest
+      properties:
+        comment:
+          type: string
+          description: Human-readable comment recorded with the acknowledge event
+    ConfirmAlarmRequest:
+      type: object
+      title: ConfirmAlarmRequest
+      properties:
+        comment:
+          type: string
+          description: Human-readable comment recorded with the confirm event
+    ReportAlarmRequest:
+      type: object
+      title: ReportAlarmRequest
+      properties:
+        comment:
+          type: string
+          description: Human-readable comment recorded with the report event
+    ResetAlarmRequest:
+      type: object
+      title: ResetAlarmRequest
+      properties:
+        comment:
+          type: string
+          description: Audit comment recorded with the reset (uses Reset2)
+    SetAlarmLatchedRequest:
+      type: object
+      title: SetAlarmLatchedRequest
+      required:
+        - latched
+      properties:
+        latched:
+          type: boolean
+    NodeReference:
+      type: string
+      title: NodeReference
+      description: String to reference another node
+    UAStatusCode:
+      type: string
+      description: bitmask for status code
+    LADSDeviceStateMachine:
+      type: object
+      properties:
+        currentState:
+          type: string
+          enum:
+            - initialization
+            - operate
+            - sleep
+            - shutdown
+        lastTransition:
+          type: string
+          enum:
+            - initializationToOperate
+            - operateToSleep
+            - sleepToOperate
+            - operateToShutdown
+        statusCode:
+          type: string
+          description: >-
+            OPC UA StatusCode name of the CurrentState read (e.g. "Good", "UncertainNoCommunicationLastUsableValue"). Drives online/offline independently of the operational currentState.
+      required:
+        - currentState
+    MachineryItemState:
+      type: object
+      properties:
+        currentState:
+          $ref: '#/components/schemas/UAState'
+        lastTransition:
+          $ref: '#/components/schemas/UATransition'
+        statusCode:
+          type: string
+          description: OPC UA StatusCode name of the CurrentState read.
+      required:
+        - currentState
+    UAState:
+      description: Possible values for device state that represent the current state
+      enum:
+        - executing
+        - notAvailable
+        - notExecuting
+        - outOfService
+      readOnly: true
+    UATransition:
+      description: >-
+        Possible values for device state that represent a transition between states
+      enum:
+        - fromExecutingToExecuting
+        - fromExecutingToNotAvailable
+        - fromExecutingToOutOfService
+        - fromNotAvailableToExecuting
+        - fromNotAvailableToNotAvailable
+        - fromNotAvailableToNotExecuting
+        - fromNotAvailableToOutOfService
+        - fromNotExecutingToExecuting
+        - fromNotExecutingToNotAvailable
+        - fromNotExecutingToNotExecuting
+        - fromNotExecutingToOutOfService
+        - fromOutOfServiceToExecuting
+        - fromOutOfServiceToNotAvailable
+        - fromOutOfServiceToNotExecuting
+        - fromOutOfServiceToOutOfService
+      readOnly: true
+    UAFunctionalState:
+      title: UAFunctionalState
+      enum:
+        - aborted
+        - aborting
+        - clearing
+        - stopped
+        - running
+        - stopping
+      readOnly: true
+    UAExclusiveLimitState:
+      title: UAExclusiveLimitState
+      enum:
+        - highHigh
+        - high
+        - low
+        - lowLow
+      description: Possible states of an AlarmMonitor
+      readOnly: true
+    UAExclusiveLimitTransition:
+      title: UAExclusiveLimitTransition
+      enum:
+        - highToHighHigh
+        - highHighToHigh
+        - lowToLowLow
+        - lowLowToLow
+      description: Possible transitions of an AlarmMonitor
+      readOnly: true
+    UAExclusiveLimitValues:
+      title: UAExclusiveLimitValues
+      type: object
+      description: |-
+        Alarm threshold values from OPC UA AlarmMonitor (LimitAlarm).
+        Contains the actual numeric threshold values.
+      properties:
+        highHighLimit:
+          type: number
+          description: Critical high threshold
+        highLimit:
+          type: number
+          description: Warning high threshold
+        lowLimit:
+          type: number
+          description: Warning low threshold
+        lowLowLimit:
+          type: number
+          description: Critical low threshold
+        onDelay:
+          type: number
+          description: Seconds the condition must hold before the alarm fires
+        offDelay:
+          type: number
+          description: Seconds the condition must clear before the alarm clears
+        userAccessLevel:
+          $ref: '#/components/schemas/UAVariableAccessLevel'
+      readOnly: true
+    UADIDeviceHealthEnumeration:
+      title: UADIDeviceHealthEnumeration
+      enum:
+        - NORMAL
+        - FAILURE
+        - CHECK_FUNCTION
+        - OFF_SPEC
+        - MAINTENANCE_REQUIRED
+      description: |-
+        Device Health states
+
+        NORMAL:
+          The Device functions normally.
+        FAILURE:
+          Malfunction of the Device or any of its peripherals.
+          Typically caused device-internal or is process related.
+        CHECK_FUNCTION:
+          Functional checks are currently performed. Examples:
+          Change of configuration, local operation, and substitute value entered.
+        OFF_SPEC:
+          "Off-spec" means that the Device is operating outside its specified range
+          (e.g. measuring or temperature range) or that internal diagnoses indicate deviations
+          from measured or set values due to internal problems in the Device or process characteristics.
+        MAINTENANCE_REQUIRED:
+          Although the output signal is valid, the wear reserve is nearly exhausted or a function will soon be restricted
+          due to operational conditions e.g. build-up of deposits.
+      readOnly: true
+    UAAlarmCondition:
+      type: object
+      required:
+        - browseName
+        - displayName
+        - eventId
+        - eventType
+        - sourceNode
+        - receiveTime
+        - message
+        - severity
+        - conditionName
+        - enabledState
+        - lastSeverity
+        - ackedState
+        - activeState
+        - suppressedOrShelved
+      properties:
+        browseName:
+          type: string
+        displayName:
+          type: string
+        eventId:
+          type: string
+        eventType:
+          type: string
+        sourceNode:
+          $ref: '#/components/schemas/NodeReference'
+        sourceName:
+          type: string
+        time:
+          type: string
+          format: date-time
+          readOnly: true
+        receiveTime:
+          type: string
+          format: date-time
+        message:
+          type: string
+        severity:
+          type: number
+          description: value between 1 (low) to 1000 (highest)
+        conditionName:
+          type: string
+        retain:
+          type: boolean
+        enabledState:
+          type: boolean
+        quality:
+          $ref: '#/components/schemas/UAStatusCode'
+        lastSeverity:
+          type: number
+          description: value between 1 (low) to 1000 (highest)
+        comment:
+          type: string
+          description: comment by user
+        clientUserId:
+          type: string
+          description: user who made the comment
+        ackedState:
+          type: boolean
+        confirmedState:
+          type: boolean
+          description: indicated if the alarm state has been confirmed or not
+        activeState:
+          type: boolean
+          description: indicates if the alarm condition is currently active
+        suppressedState:
+          type: boolean
+          description: indicated if the alarm condition is suppressed
+        outOfServiceState:
+          description: >-
+            indicates if the alarm condition causes the device to be non functional / out of service
+          type: boolean
+        shelvingState:
+          type: boolean
+          description: indicated if the active alarm is shelved by a user
+        suppressedOrShelved:
+          type: boolean
+          description: >-
+            indicates if the active alarm condition shall be ignored by configuration.
+
+            Either by shelfing a single occurance or if it es gernerally suppressed
+    UAExclusiveLimitAlarm:
+      allOf:
+        - $ref: '#/components/schemas/UAAlarmCondition'
+        - properties:
+            limitState:
+              anyOf:
+                - $ref: '#/components/schemas/UAExclusiveLimitState'
+                - $ref: '#/components/schemas/UAExclusiveLimitTransition'
+              type: object
+          required:
+            - limitState
+      type: object
+    UAMachineryLifetimeVariable:
+      type: object
+      required:
+        - displayName
+        - engineeringUnits
+        - startValue
+        - limitValue
+      properties:
+        displayName:
+          type: string
+        engineeringUnits:
+          type: string
+        startValue:
+          type: number
+        limitValue:
+          type: number
+        indication:
+          type: string
+        warningValues:
+          type: array
+          items:
+            type: number
+    UAMachineryOperationCounter:
+      type: object
+      properties:
+        operationCycleCounter:
+          type: integer
+          description: |-
+            OperationCycleCounter is counting the times the
+            component switches from not performing an
+            activity to performing an activity. For example,
+            each time a valve starts moving, is counted. This
+            value shall only increase during the lifetime of
+            the component and shall not be reset when the
+            component is restarted.
+        operationDuration:
+          type: integer
+          description: |-
+            OperationDuration is the duration the
+            MachineryItem has been powered and performing an
+            activity. This counter is intended for machines
+            and components where a distinction is made
+            between switched on and in operation. For
+            example, a drive might be powered on but not
+            operating. It is not intended for machines or
+            components always performing an activity like
+            sensors always measuring data. This value shall
+            only increase during the lifetime of the
+            MachineryItem and shall not be reset when it is
+            restarted. The OperationDuration is provided as
+            Duration, i.e., in milliseconds or even fractions
+            of a millisecond. However, the Server is not
+            expected to update the value in such a high
+            frequency, but maybe once a minute or once an
+            hour, depending on the application.
+        powerOnDuration:
+          type: integer
+          description: |-
+            PowerOnDuration is the duration the MachineryItem
+            has been powered. The main purpose is to
+            determine the time in which degradation of the
+            MachineryItem occurred. The details, when the
+            time is counted, is implementation-specific.
+            Companion specifications might define specific
+            rules. Typically, when the MachineryItem has
+            supply voltage and the main CPU is running, the
+            time is counted. This may include any kind of
+            sleep mode, but may not include pure Wake on LAN.
+            This value shall only increase during the
+            lifetime of the MachineryItem and shall not be
+            reset when it is restarted. The PowerOnDuration
+            is provided as Duration, i.e., in milliseconds or
+            even fractions of a millisecond. However, the
+            Server is not expected to update the value in
+            such a high frequency, but maybe once a minute or
+            once an hour, depending on the application.
+    UAMaintenanceTask:
+      type: object
+    UALADSComponent:
+      type: object
+      required:
+        - identification
+        - browseName
+        - displayName
+      properties:
+        browseName:
+          type: string
+        displayName:
+          type: string
+        assetId:
+          type: string
+          description: >-
+            AssetId is a user writable alphanumeric character sequence uniquely identifying a component. The ID is provided by the integrator or user of thedevice.
+        componentName:
+          type: string
+          description: >-
+            ComponentName is a user writable name provided by the integrator or user of the component.
+        hierarchicalLocation:
+          type: string
+          description: |-
+            HierarchicalLocation provides the hierarchical
+            location of the LADS Device. The structure inside
+            the string may expose several levels. How this is
+            exposed, which delimiters are used, etc. is
+            vendor-specific. Examples of such strings are
+            “FactoryA/BuildingC/Floor1” or
+            “Area1-ProcessCell17-Unit4” (see OPC UA OPC
+            10000-110 for more Details).
+        operationalLocation:
+          type: string
+          description: |-
+            OperationalLocation provides the operational
+            location of the Device or Component. The
+            structure within the string may expose several
+            levels. How this is exposed, which delimiters are
+            used, etc. is vendor-specific. Examples of such
+            strings are “Warehouse1/Sheet3” or
+            “StainlessSteelTote3” (see OPC UA OPC 10000-110
+            for more details).
+        identification:
+          type: object
+          required:
+            - deviceClass
+            - deviceManual
+            - deviceRevision
+            - hardwareRevision
+            - manufacturer
+            - manufacturerUri
+            - model
+            - productCode
+            - productInstanceUri
+            - revisionCounter
+            - serialNumber
+            - softwareRevision
+          properties:
+            deviceClass:
+              type: string
+              description: |-
+                DeviceClass indicates in which domain or for what
+                purpose a certain item for which the Interface is
+                applied is used. Examples are
+                “ProgrammableController”, “RemoteIO”, and
+                “TemperatureSensor”.
+            deviceManual:
+              type: string
+              description: |-
+                DeviceManual allows specifying an address of the
+                user manual. It may be a pathname in the file
+                system or a URL (Web address).
+              format: uri-reference
+            deviceRevision:
+              type: string
+              description: |-
+                DeviceRevision provides the overall revision
+                level of a hardware component or the Device. As
+                an example, this Property can be used in ERP
+                systems together with the ProductCode Property.
+            hardwareRevision:
+              type: string
+            manufacturer:
+              type: string
+            manufacturerUri:
+              type: string
+              format: uri
+            model:
+              type: string
+            productCode:
+              type: string
+            productInstanceUri:
+              type: string
+              format: uri
+            revisionCounter:
+              type: string
+            serialNumber:
+              type: string
+            softwareRevision:
+              type: string
+        deviceHealth:
+          $ref: '#/components/schemas/UADIDeviceHealthEnumeration'
+        deviceHealthAlarms:
+          type: array
+          items:
+            $ref: '#/components/schemas/UAAlarmCondition'
+        lifetimeCounters:
+          type: array
+          items:
+            $ref: '#/components/schemas/UAMachineryLifetimeVariable'
+        operationCounters:
+          type: array
+          items:
+            $ref: '#/components/schemas/UAMachineryOperationCounter'
+        maintenance:
+          type: array
+          items:
+            $ref: '#/components/schemas/UAMaintenanceTask'
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/UALADSComponent'
+    UALADSDevice:
+      allOf:
+        - $ref: '#/components/schemas/UALADSComponent'
+        - type: object
+          required:
+            - deviceState
+          properties:
+            deviceState:
+              $ref: '#/components/schemas/LADSDeviceStateMachine'
+            machineryItemState:
+              $ref: '#/components/schemas/MachineryItemState'
+            machineryOperationMode:
+              enum:
+                - maintenance
+                - none
+                - processing
+                - setup
+              description: |
+                maintenance
+                  MachineryItem is set into maintenance mode with
+                  the intention to carry out maintenance or
+                  servicing activities
+                none
+                  There is currently no operation mode available
+                processing
+                  MachineryItem is set into processing mode with
+                  the intention to carry out the value adding
+                  activities
+
+
+                     setup:
+                       MachineryItem is set into setup mode with the
+                       intention to carry out setup, preparation or
+                       postprocessing activities of a production process
+              readOnly: true
+            functionalUnitSet:
+              type: array
+              items:
+                $ref: '#/components/schemas/UALADSFunctionalUnit'
+    UALADSFunctionalUnit:
+      type: object
+      properties:
+        browseName:
+          type: string
+        browsePath:
+          type: string
+          description: |-
+            Canonical (source-side) browse path of this FunctionalUnit,
+            e.g. "DeviceSet/FreezerDevice@0815/FunctionalUnitSet/FreezerUnit".
+            For cross-mounted FUs (OrganizedFunctionalUnit) this is the
+            source path, NOT the mount/host path. Use this for overrides,
+            history queries, and source-device lookups.
+        displayName:
+          type: string
+        type:
+          type: string
+          default: FunctionalUnitType
+          description: |-
+            Class of the functional unit.
+            This can be used for manufacturer specific rendering for devices
+        functionSet:
+          type: array
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/UAAnalogControlFunction'
+              - $ref: '#/components/schemas/UAAnalogSensorFunction'
+        lock:
+          type: object
+          properties:
+            locked:
+              type: boolean
+            lockingClient:
+              type: string
+            lockingUser:
+              type: string
+            remainingLockTime:
+              type: integer
+        supportedPropertiesSet:
+          type: object
+        functionalUnitState:
+          $ref: '#/components/schemas/UAFunctionalState'
+        assetId:
+          type: string
+          description: |-
+            AssetId is a user-writable alphanumeric character
+            sequence the uniquely identifies a FunctionalUnit
+            (see OPC UA 10000-100).
+        componentName:
+          type: string
+          description: |-
+            ComponentName is a user-writable name provided by
+            the integrator or user of the FunctionalUnit.
+        programManager:
+          type: object
+          description: >-
+            ProgramManager with ActiveProgram from OPC UA LADS ProgramManagerType.
+          properties:
+            activeProgram:
+              $ref: '#/components/schemas/UALADSActiveProgram'
+      required:
+        - browseName
+        - browsePath
+        - displayName
+        - type
+        - functionalUnitState
+    UALADSActiveProgram:
+      type: object
+      description: |-
+        ActiveProgram from OPC UA LADS ActiveProgramType (i=1040).
+        Provides context about the currently active program on a FunctionalUnit.
+      properties:
+        currentProgramTemplate:
+          type: string
+          nullable: true
+          description: Name of the currently executed program template.
+        currentRuntime:
+          type: number
+          nullable: true
+          description: Current run-time in milliseconds (excludes paused time).
+        currentStepName:
+          type: string
+          nullable: true
+          description: Name of the current step.
+        currentStepNumber:
+          type: integer
+          nullable: true
+          description: Index of the current step (1-based).
+        currentStepRuntime:
+          type: number
+          nullable: true
+          description: Runtime of the current step in milliseconds.
+        estimatedRuntime:
+          type: number
+          nullable: true
+          description: Estimated total run-time in milliseconds.
+        estimatedStepNumbers:
+          type: integer
+          nullable: true
+          description: Estimated total number of steps.
+        estimatedStepRuntime:
+          type: number
+          nullable: true
+          description: Estimated runtime of the current step in milliseconds.
+        currentPauseTime:
+          type: number
+          nullable: true
+          description: Accumulated pause time in milliseconds.
+        deviceProgramRunId:
+          type: string
+          nullable: true
+          description: Device-specific unique identifier for this program run.
+      required:
+        - currentProgramTemplate
+        - currentRuntime
+        - currentStepName
+        - currentStepNumber
+        - currentStepRuntime
+        - estimatedRuntime
+        - estimatedStepNumbers
+        - estimatedStepRuntime
+        - currentPauseTime
+        - deviceProgramRunId
+    UAFunctionValue:
+      type: object
+      properties:
+        valuePrecision:
+          type: integer
+          description: precision of the value to display
+        value:
+          $ref: '#/components/schemas/UAVariable'
+        accessLevel:
+          $ref: '#/components/schemas/UAVariableAccessLevel'
+        userAccessLevel:
+          $ref: '#/components/schemas/UAVariableAccessLevel'
+        historizing:
+          type: boolean
+          description: >-
+            OPC UA standard attribute - true if history is being recorded for this variable
+    UARange:
+      type: object
+      properties:
+        low:
+          type: number
+        high:
+          type: number
+    UAVariable:
+      type: object
+      properties:
+        serverTimestamp:
+          type: string
+          format: date-time
+        sourceTimestamp:
+          type: string
+          format: date-time
+        statusCode:
+          $ref: '#/components/schemas/UAVariableStatusCode'
+        value:
+          oneOf:
+            - type: number
+            - type: string
+      required:
+        - serverTimestamp
+        - statusCode
+        - value
+    UAVariableStatusCode:
+      type: string
+      description: OPC UA StatusCode symbolic name
+      enum:
+        - good
+        - goodClamped
+        - goodLocalOverride
+        - uncertain
+        - uncertainLastUsableValue
+        - uncertainSubNormal
+        - uncertainNoCommunicationLastUsableValue
+        - uncertainEngineeringUnitsExceeded
+        - bad
+        - badUnexpectedError
+        - badInternalError
+        - badOutOfMemory
+        - badCommunicationError
+        - badEncodingError
+        - badDecodingError
+        - badEncodingLimitsExceeded
+        - badRequestTooLarge
+        - badResponseTooLarge
+        - badNodeIdInvalid
+        - badNodeIdUnknown
+        - badAttributeIdInvalid
+        - badNotConnected
+        - badNotReadable
+        - badNotWritable
+        - badOutOfRange
+        - badIndexRangeInvalid
+        - badIndexRangeNoData
+        - badUserAccessDenied
+        - badNoCommunication
+    UAAnalogUnitRange:
+      allOf:
+        - $ref: '#/components/schemas/UAFunctionValue'
+        - type: object
+          properties:
+            instrumentRange:
+              $ref: '#/components/schemas/UARange'
+            euRange:
+              $ref: '#/components/schemas/UARange'
+            engineeringUnits:
+              type: string
+              description: unit of the physical quantity that is measured
+            enumStrings:
+              type: array
+              items:
+                type: string
+              description: >-
+                Possible discrete values for MultiStateDiscrete and TwoStateDiscrete types
+    UADiscreteValue:
+      allOf:
+        - $ref: '#/components/schemas/UAFunctionValue'
+        - type: object
+          properties:
+            enumStrings:
+              type: array
+              items:
+                type: string
+          required:
+            - enumStrings
+    UAVariableAccessLevel:
+      type: array
+      items:
+        type: string
+        enum:
+          - currentRead
+          - currentWrite
+          - historyRead
+          - historyWrite
+          - semanticChange
+          - statusWrite
+          - timestampWrite
+          - reserved
+    UAFunction:
+      type: object
+      properties:
+        browseName:
+          type: string
+        displayName:
+          type: string
+        type:
+          type: string
+          description: Specifies the concrete LADS type of the Function
+        functionSet:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/UAAnalogSensorFunction'
+              - $ref: '#/components/schemas/UAAnalogControlFunction'
+              - $ref: '#/components/schemas/UADiscreteControlFunction'
+        configuration:
+          type: object
+          description: |-
+            Configuration is used to organize parameters for
+            configuration of the Function.
+        port:
+          type: string
+          nullable: true
+          description: >-
+            Physical port identifier for this Function (e.g. "left", "right", "first").
+
+            Maps to the OPC UA Port property on the Function node.
+        isEnabled:
+          type: boolean
+          description: >-
+            IsEnabled indicates whether the Function can currently be executed on the Device.
+
+            A Function may be disabled for several reasons including not licensed,
+
+            missing hardware modules, or missing supplies
+        alarmMonitor:
+          $ref: '#/components/schemas/UAExclusiveLimitValues'
+    UAAnalogControlFunction:
+      allOf:
+        - $ref: '#/components/schemas/UAFunction'
+        - type: object
+          properties:
+            currentValue:
+              $ref: '#/components/schemas/UAAnalogUnitRange'
+            targetValue:
+              $ref: '#/components/schemas/UAAnalogUnitRange'
+            controlFunctionState:
+              $ref: '#/components/schemas/UAFunctionalState'
+    UADiscreteControlFunction:
+      allOf:
+        - $ref: '#/components/schemas/UAFunction'
+        - type: object
+          properties:
+            currentValue:
+              $ref: '#/components/schemas/UADiscreteValue'
+            targetValue:
+              $ref: '#/components/schemas/UADiscreteValue'
+            controlFunctionState:
+              $ref: '#/components/schemas/UAFunctionalState'
+        - type: object
+          properties:
+            enumStrings:
+              type: array
+              items:
+                type: string
+    UAAnalogSensorFunction:
+      allOf:
+        - $ref: '#/components/schemas/UAFunction'
+        - type: object
+          properties:
+            sensorValue:
+              $ref: '#/components/schemas/UAAnalogUnitRange'
+    AlarmMonitorSettings:
+      type: object
+      description: Input for updating function alarm thresholds
+      properties:
+        highHighLimit:
+          type: number
+          description: Critical high threshold
+        highLimit:
+          type: number
+          description: Warning high threshold
+        lowLimit:
+          type: number
+          description: Warning low threshold
+        lowLowLimit:
+          type: number
+          description: Critical low threshold
+        enabledState:
+          type: boolean
+          description: >-
+            Indicates if the alarm monitor is active or not. If disabled, the thresholds are still active, but no alarm is triggered
+        onDelay:
+          type: number
+          description: >-
+            Time interval in seconds during which an alarm condition must remain continuously true before the alarm becomes active.
+        offDelay:
+          type: number
+          description: >-
+            Time interval in seconds during which the alarm condition must remain cleared before the alarm becomes inactive.
+    ValueOverrideInput:
+      type: object
+      description: Input for setting a value override on any OPC UA browse path
+      required:
+        - browsePath
+        - value
+        - dataType
+        - referenceType
+      properties:
+        browsePath:
+          type: string
+          description: >-
+            Full OPC UA browse path (e.g. DeviceSet/SP2DC800200/HierarchicalLocation)
+        value:
+          description: The override value
+        dataType:
+          type: string
+          description: 'OPC UA data type name (e.g. String, Double, Boolean)'
+        referenceType:
+          type: string
+          enum:
+            - property
+            - variable
+          description: OPC UA reference type
+    ValueOverride:
+      type: object
+      properties:
+        browsePath:
+          type: string
+        value:
+          description: The override value
+        dataType:
+          type: string
+        referenceType:
+          type: string
+          enum:
+            - property
+            - variable
+        updatedAt:
+          type: string
+          format: date-time
+    OrganizedFunctionalUnitInput:
+      type: object
+      required:
+        - sourceBrowsePath
+        - targetBrowsePath
+      properties:
+        sourceBrowsePath:
+          type: string
+          description: >-
+            Browse path of the source FunctionalUnit (e.g. DeviceSet/FreezerDevice@0815/FunctionalUnitSet/FreezerUnit)
+          example: DeviceSet/FreezerDevice@0815/FunctionalUnitSet/FreezerUnit
+        targetBrowsePath:
+          type: string
+          description: >-
+            Browse path of the target FunctionalUnitSet that will organize the source (e.g. DeviceSet/myViscometer@4711/FunctionalUnitSet)
+          example: DeviceSet/myViscometer@4711/FunctionalUnitSet
+    OrganizedFunctionalUnit:
+      type: object
+      properties:
+        sourceBrowsePath:
+          type: string
+        targetBrowsePath:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+    HistoryDataValue:
+      type: object
+      description: Single historical data point (matches UAVariable format)
+      required:
+        - serverTimestamp
+        - statusCode
+        - value
+      properties:
+        serverTimestamp:
+          type: string
+          format: date-time
+        sourceTimestamp:
+          type: string
+          format: date-time
+        statusCode:
+          type: string
+        value:
+          oneOf:
+            - type: number
+            - type: string
+            - type: boolean
+    HistoryReadResponse:
+      type: object
+      description: Historical data response for a function (returns all value variables)
+      required:
+        - statusCode
+        - timestamp
+        - data
+        - meta
+      properties:
+        statusCode:
+          type: string
+          description: 'Overall status code of the operation (e.g. Good, BadNodeIdUnknown)'
+        timestamp:
+          type: string
+          format: date-time
+          description: Server timestamp when the response was generated
+        data:
+          type: object
+          required:
+            - values
+          properties:
+            values:
+              type: array
+              description: Historical data for all value variables in the function
+              items:
+                $ref: '#/components/schemas/HistoryValueData'
+        meta:
+          type: object
+          required:
+            - browsePath
+            - query
+          properties:
+            browsePath:
+              type: string
+              description: REST path to the function
+            query:
+              type: object
+              required:
+                - startTime
+                - endTime
+              properties:
+                startTime:
+                  type: string
+                  format: date-time
+                  description: Start of time range (echoed from request)
+                endTime:
+                  type: string
+                  format: date-time
+                  description: 'End of time range (echoed from request, resolved if omitted)'
+                numValuesPerNode:
+                  type: integer
+                  description: Maximum number of values per node (echoed from request)
+    AggregateReadResponse:
+      type: object
+      description: Aggregated historical data response
+      required:
+        - nodeId
+        - aggregateFunction
+        - processingInterval
+        - historyData
+      properties:
+        nodeId:
+          type: string
+        aggregateFunction:
+          $ref: '#/components/schemas/AggregateFunctionEnum'
+        processingInterval:
+          type: number
+          description: Bucket size in milliseconds
+        historyData:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryDataValue'
+        engineeringUnits:
+          type: string
+        valuePrecision:
+          type: number
+        euRange:
+          type: object
+          properties:
+            low:
+              type: number
+            high:
+              type: number
+    AggregateFunctionEnum:
+      type: string
+      description: OPC UA standard aggregate functions
+      enum:
+        - Average
+        - Minimum
+        - Maximum
+        - Count
+        - Total
+        - Range
+    HistoryValueData:
+      type: object
+      description: Historical data for a specific value variable
+      required:
+        - browsePath
+        - statusCode
+        - historyData
+      properties:
+        browsePath:
+          type: string
+          description: >-
+            OPC UA browse path to the value variable (e.g. TemperatureController/CurrentValue)
+        statusCode:
+          type: string
+          description: 'OPC UA status code (e.g. Good, GoodNoData, BadNodeIdUnknown)'
+        historyData:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryDataValue'
+        continuationPoint:
+          type: string
+          nullable: true
+          description: Continuation point for paging through large result sets
+        engineeringUnits:
+          type: string
+        valuePrecision:
+          type: number
+        euRange:
+          type: object
+          properties:
+            low:
+              type: number
+            high:
+              type: number
+        enumStrings:
+          type: array
+          items:
+            type: string
+    DiscoveredServer:
+      type: object
+      required:
+        - endpointUrl
+        - name
+        - isOnline
+        - isManual
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Server UUID
+        name:
+          type: string
+          description: Server-Name
+          example: LADS Server 1
+        endpointUrl:
+          type: string
+          description: OPC UA Endpoint URL
+          example: 'opc.tcp://192.168.1.100:4840'
+        applicationUri:
+          type: string
+          description: OPC UA Application URI
+          example: 'urn:waldner:lads:server1'
+        productUri:
+          type: string
+          description: OPC UA Product URI
+        isOnline:
+          type: boolean
+          description: Server ist erreichbar
+        isManual:
+          type: boolean
+          description: Manuell hinzugefügt (nicht auto-discovered)
+        lastSeen:
+          type: string
+          format: date-time
+          description: Letzter erfolgreicher Kontakt
+        discoveredAt:
+          type: string
+          format: date-time
+          description: Zeitpunkt der ersten Entdeckung
+        hasCredentials:
+          type: boolean
+          description: Credentials sind für diesen Server konfiguriert
+        description:
+          type: string
+          description: Optionale Beschreibung (nur für manuelle Server)
+    DiscoveredServersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoveredServer'
+    ManualServerInput:
+      type: object
+      required:
+        - name
+        - endpointUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Optional - für Update eines bestehenden Servers
+        name:
+          type: string
+          description: Server-Name
+          example: Labor LADS Server
+        endpointUrl:
+          type: string
+          description: OPC UA Endpoint URL
+          example: 'opc.tcp://192.168.1.100:4840'
+        description:
+          type: string
+          description: Optionale Beschreibung
+          example: Hauptlabor Etage 2
+        enabled:
+          type: boolean
+          description: Server aktiv (wird bei Discovery berücksichtigt)
+          default: true
+    ManualServer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        endpointUrl:
+          type: string
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ManualServerResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ManualServer'
+    CredentialsInput:
+      type: object
+      required:
+        - authType
+      properties:
+        authType:
+          type: string
+          enum:
+            - anonymous
+            - username
+            - certificate
+          description: Authentifizierungstyp
+        username:
+          type: string
+          description: Benutzername (nur bei authType=username)
+        password:
+          type: string
+          format: password
+          description: Passwort (nur bei authType=username)
+        certificate:
+          type: string
+          format: byte
+          description: Base64-encoded X.509 Zertifikat (nur bei authType=certificate)
+        privateKey:
+          type: string
+          format: byte
+          description: Base64-encoded Private Key (nur bei authType=certificate)
+    CredentialsMeta:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        serverId:
+          type: string
+          format: uuid
+        authType:
+          type: string
+          enum:
+            - anonymous
+            - username
+            - certificate
+        username:
+          type: string
+          nullable: true
+          description: Nur bei authType=username
+        hasCertificate:
+          type: boolean
+          description: Zertifikat ist konfiguriert
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CredentialsMetaResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CredentialsMeta'
+    Error1:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Fehlermeldung
+  securitySchemes:
+    oauth2:
+      name: dex
+      description: |
+        Authenticates against OAuth IDP.
+      type: oauth2
+      x-issuer: 'https://lcc.ieu.local/oauth'
+      x-audience: lcc-api-docs
+      flows:
+        authorizationCode:
+          authorizationUrl: 'https://lcc.ieu.local/oauth/auth'
+          tokenUrl: 'https://lcc.ieu.local/oauth/token'
+          scopes:
+            openid: Required for OpenID Connect authentication and ID token issuance.
+            profile: Allows access to the user's basic profile information.
+            email: Allows access to the user's email address.
+            Rooms.Read: read rooms and eco recommendations
+            Rooms.Write: modify room settings
+            Rooms.Manage: create or delete rooms
+            Devices.Read: read device information
+            Devices.Write: modify device properties
+            Devices.Control: remote control devices
+            Devices.Manage: add or remove devices
+            Automations.Manage: create or delete automations
+            Automations.Read: read automations
+            Automations.Write: modify automations
+            Incidents.Read: read incidents
+            Incidents.Create: create incidents
+            Incidents.Manage: report or confirm incidents
+  parameters:
+    ParamDeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: browsename of the device
+      example: S1-1016939
+    ParamFunctionalUnitId:
+      name: functionalUnitId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: browsename of the functionalUnit
+      example: LuminescenceReaderUnit
+    ParamFunctionId:
+      name: functionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: browsename of the function
+      example: Injector1
+    ParamStartTime:
+      name: startTime
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+      description: Start of time range (ISO 8601)
+      example: '2026-02-17T00:00:00Z'
+    ParamEndTime:
+      name: endTime
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: End of time range (ISO 8601). Defaults to current time if omitted.
+      example: '2026-02-17T12:00:00Z'
+    ParamNumValuesPerNode:
+      name: numValuesPerNode
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 1000
+      description: Maximum number of values to return
+    ParamAggregateFunction:
+      name: aggregateFunction
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/AggregateFunctionEnum'
+      description: Aggregate function to apply
+    ParamProcessingInterval:
+      name: processingInterval
+      in: query
+      required: true
+      schema:
+        type: integer
+      description: 'Bucket size in milliseconds (e.g., 3600000 = 1 hour)'
+      example: 3600000
+    ParamVariablePath:
+      name: variablePath
+      in: query
+      required: false
+      schema:
+        type: string
+      description: >-
+        Optional path to specific value variable (e.g., "SensorValue", "CurrentValue")
+      example: SensorValue
+    ParamContinuationPoint:
+      name: continuationPoint
+      in: query
+      required: false
+      schema:
+        type: string
+      description: >-
+        Continuation point from a previous response to fetch the next page of results

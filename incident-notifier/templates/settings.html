@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen{% endblock %}
+{% block breadcrumb %}Einstellungen{% endblock %}
+{% block content %}
+<h1>Einstellungen</h1>
+
+<form method="POST">
+<div class="card">
+    <h2>State-Datenbank</h2>
+    <div class="form-group">
+        <label>DB-Pfad</label>
+        <input type="text" name="state_db_path" value="{{ cfg.get('state', {}).get('db_path', './state.db') }}">
+        <span class="help">SQLite-Datenbank für den Incident-Lifecycle (Eskalationsstufen, Deduplizierung)</span>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Logging</h2>
+    <div class="form-group">
+        <label>Log-Level</label>
+        <select name="logging_level">
+            {% set lvl = cfg.get('logging', {}).get('level', 'INFO') %}
+            <option value="DEBUG" {% if lvl == 'DEBUG' %}selected{% endif %}>DEBUG</option>
+            <option value="INFO" {% if lvl == 'INFO' %}selected{% endif %}>INFO</option>
+            <option value="WARNING" {% if lvl == 'WARNING' %}selected{% endif %}>WARNING</option>
+            <option value="ERROR" {% if lvl == 'ERROR' %}selected{% endif %}>ERROR</option>
+        </select>
+    </div>
+</div>
+
+<button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}

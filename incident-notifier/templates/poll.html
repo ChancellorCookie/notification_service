@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Poll-Konfiguration{% endblock %}
+{% block breadcrumb %}Poll{% endblock %}
+{% block content %}
+<h1>Poll-Konfiguration</h1>
+
+<form method="POST">
+<div class="card">
+    <h2>API-Verbindung</h2>
+    <div class="form-group">
+        <label>URL</label>
+        <input type="url" name="poll_url" value="{{ cfg.get('url', '') }}">
+    </div>
+    <div class="form-group">
+        <label>HTTP-Methode</label>
+        <select name="poll_method">
+            <option value="GET" {% if cfg.get('method', 'GET') == 'GET' %}selected{% endif %}>GET</option>
+            <option value="POST" {% if cfg.get('method') == 'POST' %}selected{% endif %}>POST</option>
+        </select>
+    </div>
+    <div class="inline">
+        <div class="form-group" style="flex:1;">
+            <label>Poll-Intervall (Sekunden)</label>
+            <input type="number" name="poll_interval" value="{{ cfg.get('interval_seconds', 30) }}" min="5">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Timeout (Sekunden)</label>
+            <input type="number" name="poll_timeout" value="{{ cfg.get('timeout_seconds', 10) }}" min="1">
+        </div>
+    </div>
+    <div class="form-group">
+        <label>TLS-Verifikation</label>
+        <input type="text" name="poll_verify_tls" value="{{ cfg.get('verify_tls', True) }}" placeholder="true | false | /pfad/zur/ca.pem">
+        <span class="help">true, false oder Pfad zur internen CA-Datei</span>
+    </div>
+    <div class="form-group">
+        <label>Incident-URL-Template</label>
+        <input type="text" name="incident_url_template" value="{{ cfg.get('incident_url_template', '') }}" placeholder="https://monitoring.local/incidents/{id}">
+        <span class="help">{id} wird durch die Incident-ID ersetzt</span>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Authentifizierung</h2>
+    <div class="form-group">
+        <label>Auth-Typ</label>
+        <select name="auth_type">
+            {% set at = cfg.get('auth', {}).get('type', 'none') %}
+            <option value="bearer" {% if at == 'bearer' %}selected{% endif %}>Bearer Token</option>
+            <option value="basic" {% if at == 'basic' %}selected{% endif %}>Basic Auth</option>
+            <option value="none" {% if at == 'none' %}selected{% endif %}>Keine</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Token / Umgebungsvariable</label>
+        <input type="text" name="auth_token" value="{{ cfg.get('auth', {}).get('token', '') }}" placeholder="${MONITORING_API_TOKEN}">
+    </div>
+</div>
+
+<div class="card">
+    <h2>Query-Parameter</h2>
+    <div class="form-group">
+        <label>Parameter (key=value, eine pro Zeile)</label>
+        <textarea name="query_params" rows="3" placeholder="lifecycle=open">{% for k, v in cfg.get('query_params', {}).items() %}{{ k }}={{ v }}
+{% endfor %}</textarea>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Paginierung</h2>
+    <div class="inline">
+        <div class="form-group" style="flex:1;">
+            <label>Page-Size (0 = deaktiviert)</label>
+            <input type="number" name="pg_page_size" value="{{ cfg.get('pagination', {}).get('page_size', 0) }}" min="0">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Offset-Param</label>
+            <input type="text" name="pg_offset_param" value="{{ cfg.get('pagination', {}).get('offset_param', 'offset') }}">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Limit-Param</label>
+            <input type="text" name="pg_limit_param" value="{{ cfg.get('pagination', {}).get('limit_param', 'limit') }}">
+        </div>
+    </div>
+    <div class="form-group">
+        <label>Total-Pfad im Response (gepunktet, leer = Auto)</label>
+        <input type="text" name="pg_total_path" value="{{ cfg.get('pagination', {}).get('total_path', '') }}" placeholder="meta.items.total">
+    </div>
+</div>
+
+<div class="card">
+    <h2>Response-Mapping</h2>
+    <div class="form-group">
+        <label>Items-Pfad (gepunktet, leer = Antwort ist das Array)</label>
+        <input type="text" name="resp_items_path" value="{{ cfg.get('response', {}).get('items_path', '') }}" placeholder="data">
+    </div>
+    <div class="form-group">
+        <label>Feld-Zuordnung (interner_name=api.feld.pfad, eine pro Zeile)</label>
+        <textarea name="resp_fields" rows="12" placeholder="id=incidentId&#10;title=message&#10;severity=severity">{% for k, v in cfg.get('response', {}).get('fields', {}).items() %}{{ k }}={{ v }}
+{% endfor %}</textarea>
+        <span class="help">Verfuegbare Felder: id, title, severity, source, description, timestamp, status, url, max_severity, help, comment, acknowledged, confirmed, reported, flap_count, strict_audited, active, event_id, updated_at, closed_at, high_high_limit, high_limit, low_limit, low_low_limit</span>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Severity-Filter</h2>
+    <div class="form-group">
+        <label>Nur diese Severities verarbeiten (eine pro Zeile)</label>
+        <textarea name="severities" rows="4" placeholder="error&#10;alert&#10;warning">{% for s in cfg.get('severities', []) %}{{ s }}
+{% endfor %}</textarea>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Report-Incident (nach Benachrichtigung)</h2>
+    <div class="form-group">
+        <label class="inline">
+            <input type="checkbox" name="report_enabled" value="1" {% if cfg.get('report_incident', {}).get('enabled') %}checked{% endif %}>
+            Aktiviert (aktuell DUMMY - loggt nur)
+        </label>
+    </div>
+    <div class="form-group">
+        <label>URL-Template</label>
+        <input type="text" name="report_url_template" value="{{ cfg.get('report_incident', {}).get('url_template', '{base_url}/lads/alarms/{incident_id}/report') }}">
+    </div>
+</div>
+
+<button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}

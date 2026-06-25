@@ -1,49 +1,91 @@
 # ----------------------------------------------------------------------------
-# Beispielkonfiguration fuer den Incident-Notifier (E-Mail-only Start).
+# Beispielkonfiguration fuer den Incident-Notifier (angepasst an LCC API v2).
 # Geheimnisse NICHT hier eintragen, sondern als ${VAR} referenzieren und in
 # /etc/incident-notifier/secrets.env setzen (chmod 600).
 # ----------------------------------------------------------------------------
 
 poll:
-  url: "https://monitoring.local/api/v1/incidents"
+  url: "https://lcc.ieu.local/api/v2/incidents"
   method: "GET"
   interval_seconds: 30
   timeout_seconds: 10
-  # true | false | "/etc/ssl/certs/interne-ca.pem"  (interne CA empfohlen statt false)
-  verify_tls: true
+  verify_tls: true                   # true | false | "/etc/ssl/certs/interne-ca.pem"
+
+  # Query-Parameter fuer die API (z.B. lifecycle=open filtert nur offene Incidents)
+  query_params:
+    lifecycle: "open"                # "open" = noch nicht resolved/done
+    # severity: "ERROR"              # optional: nur bestimmte Severity
+    # context: "DeviceSet/S1-1016939" # optional: nur Incidents eines Geraets
 
   # Direktlink zum Incident im Tool. Aus API-Feld (response.fields.url) ODER
   # hier als Vorlage mit {id}. Damit kann die Laborleitung direkt quittieren.
-  incident_url_template: "https://monitoring.local/incidents/{id}"
+  incident_url_template: "https://lcc.ieu.local/incidents/{id}"
 
   auth:
-    type: "bearer"            # bearer | basic | none
+    type: "bearer"                   # bearer | basic | none
     token: "${MONITORING_API_TOKEN}"
 
-  # An die tatsaechliche Antwortstruktur deiner Monitoring-Software anpassen!
-  response:
-    items_path: "data.incidents"   # gepunkteter Pfad zum Array; leer = Antwort IST das Array
-    fields:
-      id: "id"
-      title: "name"
-      severity: "severity"
-      source: "host"
-      description: "message"
-      timestamp: "created_at"
-      url: "permalink"             # optional: Direktlink-Feld der API (sonst Template oben)
+  # Paginierung: die LCC API liefert max. 20 Items pro Seite.
+  # Der Poller holt automatisch alle Seiten, bis total erreicht ist.
+  # Lasse page_size=0 fuer "keine Paginierung" (API liefert alle auf einmal).
+  pagination:
+    page_size: 100                   # 0 = deaktiviert
+    offset_param: "offset"
+    limit_param: "limit"
+    total_path: "meta.items.total"   # gepunkteter Pfad zum total-Feld im Response
 
-  # Nur diese Severities werden verarbeitet.
-  severities: ["critical", "warning"]
+  # An die LCC API-Antwortstruktur angepasst:
+  # GET /incidents/ -> { "data": [...], "meta": {...} }
+  response:
+    items_path: "data"               # gepunkteter Pfad zum Array; leer = Antwort IST das Array
+    fields:
+      id: "incidentId"
+      title: "message"
+      severity: "severity"           # NOTICE | INFO | WARNING | ALERT | ERROR
+      source: "context"
+      description: "message"
+      timestamp: "createdAt"
+      status: "status"               # NEW | ACKNOWLEDGED | CONFIRMED | REPORTED | CLOSED | RESOLVED
+      url: ""                        # kein Link in der API -> Template oben
+
+      # Zusaetzliche LCC-API-Felder
+      max_severity: "maxSeverity"
+      help: "help"
+      comment: "comment"
+      acknowledged: "acknowledged"
+      confirmed: "confirmed"
+      reported: "reported"
+      flap_count: "flapCount"
+      strict_audited: "strictAudited"
+      active: "active"
+      event_id: "eventId"
+      updated_at: "updatedAt"
+      closed_at: "closedAt"
+      high_high_limit: "highHighLimit"
+      high_limit: "highLimit"
+      low_limit: "lowLimit"
+      low_low_limit: "lowLowLimit"
+
+  # Nur diese Severities werden verarbeitet (LCC verwendet Grossbuchstaben)
+  severities: ["error", "alert", "warning"]
+
+  # Optional: Incident nach erfolgreicher Benachrichtigung als "reported"
+  # markieren (POST /lads/alarms/{incidentId}/report). Aktuell DUMMY.
+  report_incident:
+    enabled: false                    # true = POST wird abgesetzt (noch DUMMY)
+    url_template: "{base_url}/lads/alarms/{incident_id}/report"
 
 # Eskalation = nur zeitbasierte Erinnerung, solange der Vorfall offen bleibt.
 # Quittierung passiert im Tool -> Vorfall verschwindet aus dem Feed -> Stopp.
 escalation:
-  notify_on_resolved: false        # true = kurze Entwarnung, wenn ein Vorfall verschwindet
+  notify_on_resolved: false          # true = kurze Entwarnung, wenn ein Vorfall verschwindet
   stages:
-    critical:
+    error:
       - { after_minutes: 0,  channels: ["email_lab_lead"] }   # sofort
-      - { after_minutes: 15, channels: ["email_lab_lead"] }   # Erinnerung, falls noch offen
-      # spaeter moeglich: - { after_minutes: 30, channels: ["whatsapp_lab_lead"] }
+      - { after_minutes: 15, channels: ["email_lab_lead"] }   # Erinnerung
+    alert:
+      - { after_minutes: 0,  channels: ["email_lab_lead"] }
+      - { after_minutes: 30, channels: ["email_lab_lead"] }
     warning:
       - { after_minutes: 0,  channels: ["email_lab_lead"] }
 
@@ -53,14 +95,13 @@ channels:
     smtp_host: "smtp.local"
     smtp_port: 587
     use_starttls: true
-    # use_ssl: true              # alternativ fuer SMTPS (Port 465)
-    username: "${SMTP_USER}"      # leer lassen fuer offenes internes Relay
+    username: "${SMTP_USER}"
     password: "${SMTP_PASS}"
     from_addr: "monitoring@lab.local"
     to_addrs:
       - "laborleitung@lab.local"
 
-  # Spaeter aktivierbar (Code liegt bereit) - siehe README zu WhatsApp:
+  # Spaeter aktivierbar (Code liegt bereit):
   # whatsapp_lab_lead:
   #   type: "whatsapp_twilio"
   #   account_sid: "${TWILIO_SID}"
@@ -74,3 +115,26 @@ state:
 
 logging:
   level: "INFO"
+
+# Web-UI zur Konfiguration (laueft im selben Prozess)
+webui:
+  enabled: true
+  host: "0.0.0.0"
+  port: 5080
+
+# ---------------------------------------------------------------------------
+# Nachrichten-Templates (optional – wenn leer, werden die Built-ins verwendet)
+# Platzhalter: {severity}, {severity_label}, {title}, {source}, {device_name},
+#   {description}, {timestamp}, {status}, {id}, {url}, {help}, {comment},
+#   {acknowledged}, {confirmed}, {reported}, {flap_count}, {flap_warning},
+#   {high_high_limit}, {high_limit}, {low_limit}, {low_low_limit},
+#   {threshold_list}, {flags}, {max_severity}, {max_severity_label},
+#   {event_id}, {strict_audited}, {active}
+# ---------------------------------------------------------------------------
+templates:
+  # Wenn leer oder nicht gesetzt, wird das Built-in-Template verwendet.
+  alert_subject: ""
+  alert_body: ""
+  resolved_subject: ""
+  resolved_body: ""
+  whatsapp_text: ""

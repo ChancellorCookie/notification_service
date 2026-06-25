@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Eskalation{% endblock %}
+{% block breadcrumb %}Eskalation{% endblock %}
+{% block content %}
+<h1>Eskalationsstufen</h1>
+
+<form method="POST" id="esc-form">
+<div class="card">
+    <div class="form-group">
+        <label class="inline">
+            <input type="checkbox" name="notify_on_resolved" value="1" {% if escalation.get('notify_on_resolved') %}checked{% endif %}>
+            Entwarnung senden, wenn Incident verschwindet
+        </label>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Stufen</h2>
+    <p class="help" style="margin-bottom:12px;">
+        Pro Zeile: Severity, Wartezeit (Minuten seit letzter Stufe), Kanäle (kommagetrennt).
+        Stufen derselben Severity werden nacheinander ausgelöst.
+    </p>
+    <table id="stages-table">
+        <thead>
+            <tr>
+                <th style="width:20%;">Severity</th>
+                <th style="width:15%;">Nach (min)</th>
+                <th style="width:55%;">Kanäle</th>
+                <th style="width:10%;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set stages = escalation.get('stages', {}) %}
+            {% set row_idx = namespace(value=0) %}
+            {% for sev, stlist in stages.items() %}
+                {% for st in stlist %}
+                <tr>
+                    <td><input type="text" name="st_{{ row_idx.value }}_severity" value="{{ sev }}" style="width:100%;" placeholder="error"></td>
+                    <td><input type="number" name="st_{{ row_idx.value }}_after" value="{{ st.get('after_minutes', 0) }}" min="0" style="width:100%;"></td>
+                    <td><input type="text" name="st_{{ row_idx.value }}_channels" value="{{ st.get('channels', []) | join(', ') }}" style="width:100%;" placeholder="email_lab_lead, whatsapp_lab_lead"></td>
+                    <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">&times;</button></td>
+                </tr>
+                {% set row_idx.value = row_idx.value + 1 %}
+                {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-sm add-row" onclick="addRow()">+ Stufe hinzufügen</button>
+</div>
+
+<button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+
+<script>
+let rowCount = {{ row_idx.value if row_idx is defined and row_idx else 0 }};
+function addRow() {
+    const tbody = document.querySelector('#stages-table tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" name="st_${rowCount}_severity" value="" style="width:100%;" placeholder="error"></td>
+        <td><input type="number" name="st_${rowCount}_after" value="0" min="0" style="width:100%;"></td>
+        <td><input type="text" name="st_${rowCount}_channels" value="" style="width:100%;" placeholder="email_lab_lead"></td>
+        <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">&times;</button></td>`;
+    tbody.appendChild(tr);
+    rowCount++;
+}
+</script>
+{% endblock %}

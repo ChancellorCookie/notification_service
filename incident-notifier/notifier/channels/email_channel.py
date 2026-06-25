@@ -15,12 +15,13 @@ from ..models import Incident
 class EmailChannel(Channel):
     def send(self, inc: Incident, kind: str = "alert") -> None:
         c = self.config
+        tpl = self.templates_cfg
         if kind == "resolved":
-            subject = formatting.resolved_subject(inc)
-            body = formatting.resolved_body(inc)
+            subject = formatting.resolved_subject(inc, tpl)
+            body = formatting.resolved_body(inc, tpl)
         else:
-            subject = formatting.email_subject(inc)
-            body = formatting.email_body(inc)
+            subject = formatting.email_subject(inc, tpl)
+            body = formatting.email_body(inc, tpl)
 
         msg = EmailMessage()
         msg["From"] = c["from_addr"]

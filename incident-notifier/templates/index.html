@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="card">
+    <h2>Poll</h2>
+    {% set p = cfg.get("poll", {}) %}
+    <div class="row"><strong>URL:</strong> {{ p.get("url", "-") }}</div>
+    <div class="row"><strong>Intervall:</strong> {{ p.get("interval_seconds", "-") }}s</div>
+    <div class="row"><strong>Severities:</strong> {{ p.get("severities", []) | join(", ") or "-" }}</div>
+    <div class="row"><strong>Auth:</strong> {{ p.get("auth", {}).get("type", "none") }}</div>
+</div>
+
+<div class="card">
+    <h2>Kanäle</h2>
+    {% set channels = cfg.get("channels", {}) %}
+    {% if channels %}
+    <table>
+        <tr><th>Name</th><th>Typ</th><th>Details</th></tr>
+        {% for name, ch in channels.items() %}
+        <tr>
+            <td><strong>{{ name }}</strong></td>
+            <td>{{ ch.get("type", "-") }}</td>
+            <td>
+                {% if ch.type == "email" %}
+                    {{ ch.get("from_addr", "-") }} &rarr; {{ ch.get("to_addrs", []) | join(", ") }}
+                {% elif ch.type == "whatsapp_twilio" %}
+                    {{ ch.get("from_number", "-") }} &rarr; {{ ch.get("to_numbers", []) | join(", ") }}
+                {% elif ch.type == "whatsapp_meta" %}
+                    {{ ch.get("phone_number_id", "-") }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:#888;">Keine Kanäle konfiguriert.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Eskalation</h2>
+    {% set esc = cfg.get("escalation", {}) %}
+    <div class="row"><strong>Entwarnung:</strong> {{ "Ja" if esc.get("notify_on_resolved") else "Nein" }}</div>
+    {% set stages = esc.get("stages", {}) %}
+    {% if stages %}
+    <table style="margin-top:8px;">
+        <tr><th>Severity</th><th>Nach</th><th>Kanäle</th></tr>
+        {% for sev, stlist in stages.items() %}
+        {% for st in stlist %}
+        <tr>
+            <td><span class="badge {% if sev in ('error','critical') %}badge-err{% elif sev in ('warning','alert') %}badge-warn{% else %}badge-ok{% endif %}">{{ sev }}</span></td>
+            <td>{{ st.after_minutes }} min</td>
+            <td>{{ st.channels | join(", ") }}</td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:#888;">Keine Eskalationsstufen definiert.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Einstellungen</h2>
+    <div class="row"><strong>State-DB:</strong> {{ cfg.get("state", {}).get("db_path", "-") }}</div>
+    <div class="row"><strong>Log-Level:</strong> {{ cfg.get("logging", {}).get("level", "INFO") }}</div>
+</div>
+{% endblock %}

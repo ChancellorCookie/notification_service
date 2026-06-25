@@ -20,6 +20,7 @@ from ..models import Incident
 class WhatsAppMetaChannel(Channel):
     def send(self, inc: Incident, kind: str = "alert") -> None:
         c = self.config
+        tpl = self.templates_cfg
         url = f"https://graph.facebook.com/{c.get('api_version', 'v21.0')}/{c['phone_number_id']}/messages"
         headers = {
             "Authorization": f"Bearer {c['access_token']}",
@@ -51,7 +52,7 @@ class WhatsAppMetaChannel(Channel):
                     "messaging_product": "whatsapp",
                     "to": to,
                     "type": "text",
-                    "text": {"body": formatting.whatsapp_text(inc)},
+                    "text": {"body": formatting.whatsapp_text(inc, tpl)},
                 }
             r = requests.post(url, headers=headers, json=payload, timeout=15)
             r.raise_for_status()

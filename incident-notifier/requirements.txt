@@ -1,4 +1,5 @@
 requests>=2.31
 PyYAML>=6.0
+flask>=3.0
 # Nur noetig, wenn der Twilio-WhatsApp-Kanal genutzt wird:
 twilio>=9.0

@@ -11,11 +11,11 @@ _REGISTRY = {
 }
 
 
-def build_channel(name: str, config: dict) -> Channel:
+def build_channel(name: str, config: dict, templates_cfg: dict | None = None) -> Channel:
     ctype = config.get("type")
     if ctype not in _REGISTRY:
         raise ValueError(
             f"Unbekannter Kanaltyp '{ctype}' fuer Kanal '{name}'. "
             f"Verfuegbar: {', '.join(_REGISTRY)}"
         )
-    return _REGISTRY[ctype](name, config)
+    return _REGISTRY[ctype](name, config, templates_cfg=templates_cfg)

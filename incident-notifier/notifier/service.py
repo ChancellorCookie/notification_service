@@ -38,6 +38,7 @@ def _retry(fn, attempts=3, base_delay=2.0):
 
 class Service:
     def __init__(self, config_path: str):
+        self.config_path = config_path
         self.cfg = load_config(config_path)
         logging.basicConfig(
             level=getattr(logging, self.cfg.get("logging", {}).get("level", "INFO")),
@@ -52,7 +53,7 @@ class Service:
         self.notify_on_resolved = bool(esc.get("notify_on_resolved", False))
 
         self.channels = {
-            name: build_channel(name, ccfg)
+            name: build_channel(name, ccfg, templates_cfg=self.cfg.get("templates", {}))
             for name, ccfg in self.cfg.get("channels", {}).items()
         }
         self._running = True
@@ -94,6 +95,9 @@ class Service:
             # Neuer (oder wieder aufgetauchter) Vorfall -> Stufe 0
             if self._send(inc, self._stage_channels(inc.severity, 0)):
                 self.state.start(inc, stage=0)
+                if not inc.reported:
+                    self.poller.report_incident(inc.id,
+                        comment=f"Eskaliert per {', '.join(self._stage_channels(inc.severity, 0))}")
             return
 
         # Bereits aktiv -> ggf. naechste Erinnerungsstufe, wenn Zeit abgelaufen
@@ -130,6 +134,16 @@ class Service:
         interval = int(self.cfg["poll"].get("interval_seconds", 30))
         log.info("Dienst gestartet (Intervall %ds, Kanaele: %s)",
                  interval, ", ".join(self.channels) or "keine")
+
+        webui = self.cfg.get("webui", {})
+        if webui.get("enabled", True):
+            from .web import start_webui
+            start_webui(
+                host=webui.get("host", "0.0.0.0"),
+                port=int(webui.get("port", 5080)),
+                config_path=self.config_path,
+            )
+
         while self._running:
             try:
                 self.run_once()
