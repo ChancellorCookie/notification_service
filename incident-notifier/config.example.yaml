@@ -22,8 +22,12 @@ poll:
   incident_url_template: "https://lcc.ieu.local/incidents/{id}"
 
   auth:
-    type: "bearer"                   # bearer | basic | none
-    token: "${MONITORING_API_TOKEN}"
+    # LCC API verwendet OAuth2 Client Credentials Flow:
+    type: "oauth2"                   # oauth2 | bearer | basic | none
+    token_url: "https://lcc.ieu.local/oauth/token"
+    client_id: "${OAUTH_CLIENT_ID}"
+    client_secret: "${OAUTH_CLIENT_SECRET}"
+    audience: "lcc-api-docs"         # optional, lt. OpenAPI-Spec
 
   # Paginierung: die LCC API liefert max. 20 Items pro Seite.
   # Der Poller holt automatisch alle Seiten, bis total erreicht ist.

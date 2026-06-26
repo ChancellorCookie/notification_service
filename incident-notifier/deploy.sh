@@ -55,10 +55,16 @@ say "Schritt 3/6: Monitoring-API"
 ask "API-URL (z.B. https://lcc.ieu.local/api/v2/incidents):" api_url
 api_url=${api_url:-https://lcc.ieu.local/api/v2/incidents}
 
-ask "Auth-Typ (bearer/basic/none):" auth_type
-auth_type=${auth_type:-bearer}
+ask "Auth-Typ (oauth2/bearer/basic/none):" auth_type
+auth_type=${auth_type:-oauth2}
 
-if [ "$auth_type" = "bearer" ]; then
+if [ "$auth_type" = "oauth2" ]; then
+    ask "Token-URL (z.B. https://lcc.ieu.local/oauth/token):" token_url
+    token_url=${token_url:-https://lcc.ieu.local/oauth/token}
+    ask "Client-ID:" oauth_client_id
+    ask "Client-Secret:" oauth_client_secret
+    ask "Audience (Leer fuer keine):" oauth_audience
+elif [ "$auth_type" = "bearer" ]; then
     ask "Bearer-Token:" api_token
 elif [ "$auth_type" = "basic" ]; then
     ask "Benutzername:" api_user
@@ -183,7 +189,15 @@ fi
 
 # Auth-Block
 auth_block=""
-if [ "$auth_type" = "bearer" ]; then
+if [ "$auth_type" = "oauth2" ]; then
+    auth_block="  auth:
+    type: oauth2
+    token_url: \"${token_url}\"
+    client_id: \"${oauth_client_id}\"
+    client_secret: \"${oauth_client_secret}\""
+    [ -n "${oauth_audience:-}" ] && auth_block+="
+    audience: \"${oauth_audience}\""
+elif [ "$auth_type" = "bearer" ]; then
     auth_block="  auth:
     type: bearer
     token: \${MONITORING_API_TOKEN}"

@@ -8,18 +8,31 @@ Der Direktlink zum Incident kommt entweder aus einem API-Feld (response.fields.u
 oder wird aus poll.incident_url_template gebaut, z.B.
 "https://monitoring.local/incidents/{id}".
 
+Auth-Typen:
+  - none:     keine Authentifizierung
+  - bearer:   statisches Token (Authorization: Bearer <token>)
+  - basic:    HTTP Basic Auth
+  - oauth2:   OAuth2 Client Credentials Flow (machine-to-machine).
+              Holt automatisch ein Token vom konfigurierten token_url-Endpunkt
+              und cached es bis zum Ablauf.
+
 Unterstuetzt:
   - query_params: zusaetzliche URL-Query-Parameter (z.B. lifecycle=open)
   - Paginierung: automatisches Abholen aller Seiten (response.pagination konfigurierbar)
   - report_incident: POST /lads/alarms/{incidentId}/report als Dummy (loggt nur)
 """
 import logging
+import time
 import requests
 
 from .config import get_by_path
 from .models import Incident
 
 log = logging.getLogger("notifier.poller")
+
+
+def _token_key(client_id):
+    return f"_oauth2_token_{client_id}"
 
 
 class Poller:
@@ -30,12 +43,70 @@ class Poller:
         self.pg = config.get("pagination", {}) or {}
         self.report_cfg = config.get("report_incident", {}) or {}
         self.session = requests.Session()
+        self._token_cache = {}  # client_id -> {"token": str, "expires_at": float}
+
         auth = config.get("auth", {}) or {}
         atype = auth.get("type", "none")
         if atype == "bearer":
             self.session.headers["Authorization"] = f"Bearer {auth.get('token', '')}"
         elif atype == "basic":
             self.session.auth = (auth.get("username", ""), auth.get("password", ""))
+        elif atype == "oauth2":
+            # Token wird lazy beim ersten Request geholt (in _ensure_token)
+            pass
+
+    def _oauth2_config(self):
+        return self.c.get("auth", {}) or {}
+
+    def _ensure_token(self):
+        """Holt ein OAuth2-Token per Client-Credentials-Flow, falls noetig."""
+        oa = self._oauth2_config()
+        if oa.get("type") != "oauth2":
+            return
+
+        cid = oa.get("client_id", "")
+        ckey = _token_key(cid)
+        cached = self._token_cache.get(ckey)
+
+        if cached and cached["expires_at"] > time.time() + 10:
+            self.session.headers["Authorization"] = f"Bearer {cached['token']}"
+            return
+
+        token_url = oa.get("token_url", "")
+        if not token_url:
+            log.error("oauth2 konfiguriert, aber token_url fehlt")
+            return
+
+        log.info("Hole OAuth2-Token von %s (client_id=%s)", token_url, cid)
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": cid,
+            "client_secret": oa.get("client_secret", ""),
+        }
+        audience = oa.get("audience", "")
+        if audience:
+            payload["audience"] = audience
+
+        resp = requests.post(
+            token_url,
+            data=payload,
+            timeout=oa.get("timeout_seconds", 10),
+            verify=self.c.get("verify_tls", True),
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        token = data.get("access_token", "")
+        expires_in = int(data.get("expires_in", 3600))
+        if not token:
+            raise RuntimeError(f"Token-Endpoint lieferte kein access_token: {data}")
+
+        self._token_cache[ckey] = {
+            "token": token,
+            "expires_at": time.time() + expires_in,
+        }
+        self.session.headers["Authorization"] = f"Bearer {token}"
+        log.info("OAuth2-Token erhalten, gueltig fuer %ds", expires_in)
 
     def report_incident(self, incident_id: str, comment: str = ""):
         """Markiert einen Incident in der Monitoring-Software als 'reported'
@@ -59,19 +130,13 @@ class Poller:
         if comment:
             payload["comment"] = comment
 
-        # --- DUMMY: kein echtes POST ---
         log.info(
             "[DUMMY] report_incident wuerde POST an %s senden (payload=%s)",
             url, payload,
         )
-        # --- ECHT (spaeter aktivieren):
-        # resp = self.session.post(url, json=payload,
-        #                          timeout=self.c.get("timeout_seconds", 10),
-        #                          verify=self.c.get("verify_tls", True))
-        # resp.raise_for_status()
-        # log.info("Incident %s als reported markiert", incident_id)
 
     def fetch(self):
+        self._ensure_token()
         c = self.c
         verify = c.get("verify_tls", True)
         rcfg = c.get("response", {})
@@ -112,11 +177,10 @@ class Poller:
             if limit <= 0:
                 break
 
-            # Paginierung: sind wir am Ende?
             total_path = self.pg.get("total_path", "")
             total = get_by_path(data, total_path) if total_path else 0
             if not total:
-                total = len(items)  # Fallback: wenn weniger als limit, sind wir fertig
+                total = len(items)
             offset += len(items)
             if offset >= total:
                 break
@@ -161,7 +225,6 @@ class Poller:
             url=str(f("url", "")),
             raw=item,
 
-            # Neue LCC-API-Felder
             max_severity=str(f("max_severity", "")).lower(),
             help=str(f("help", "")),
             comment=str(f("comment", "")),
