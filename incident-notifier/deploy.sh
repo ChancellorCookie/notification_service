@@ -63,6 +63,7 @@ if [ "$auth_type" = "oauth2" ]; then
     token_url=${token_url:-https://lcc.ieu.local/oauth/token}
     ask "Client-ID:" oauth_client_id
     ask "Client-Secret:" oauth_client_secret
+    ask "Scope (z.B. openid):" oauth_scope
     ask "Audience (Leer fuer keine):" oauth_audience
 elif [ "$auth_type" = "bearer" ]; then
     ask "Bearer-Token:" api_token
@@ -195,6 +196,8 @@ if [ "$auth_type" = "oauth2" ]; then
     token_url: \"${token_url}\"
     client_id: \"${oauth_client_id}\"
     client_secret: \"${oauth_client_secret}\""
+    [ -n "${oauth_scope:-}" ] && auth_block+="
+    scope: \"${oauth_scope}\""
     [ -n "${oauth_audience:-}" ] && auth_block+="
     audience: \"${oauth_audience}\""
 elif [ "$auth_type" = "bearer" ]; then

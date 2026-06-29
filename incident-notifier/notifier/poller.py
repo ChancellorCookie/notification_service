@@ -83,6 +83,9 @@ class Poller:
             "client_id": cid,
             "client_secret": oa.get("client_secret", ""),
         }
+        scope = oa.get("scope", "")
+        if scope:
+            payload["scope"] = scope
         audience = oa.get("audience", "")
         if audience:
             payload["audience"] = audience

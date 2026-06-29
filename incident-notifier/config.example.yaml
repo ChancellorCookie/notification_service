@@ -27,7 +27,8 @@ poll:
     token_url: "https://lcc.ieu.local/oauth/token"
     client_id: "${OAUTH_CLIENT_ID}"
     client_secret: "${OAUTH_CLIENT_SECRET}"
-    audience: "lcc-api-docs"         # optional, lt. OpenAPI-Spec
+    scope: "openid"                  # vom LCC-Entwickler vorgegeben
+    audience: "server:client_id:lcc-api"
 
   # Paginierung: die LCC API liefert max. 20 Items pro Seite.
   # Der Poller holt automatisch alle Seiten, bis total erreicht ist.
