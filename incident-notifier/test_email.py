@@ -8,7 +8,6 @@ empfangene Mail an. Keine Installation, keine Accounts.
 import sys
 import os
 import time
-import threading
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -30,13 +29,11 @@ def _run_server():
             try:
                 content = envelope.content.decode("utf-8", errors="replace") if isinstance(envelope.content, bytes) else envelope.content
                 msg = email.message_from_string(content)
-                parts = content.split("\r\n\r\n", 1)
-                body = parts[1] if len(parts) > 1 else content
                 self.received.append({
                     "from": envelope.mail_from,
                     "to": envelope.rcpt_tos,
                     "subject": msg.get("Subject", ""),
-                    "body": body,
+                    "body": msg.get_payload(),
                 })
             except Exception as e:
                 print(f"Handler-Fehler: {e}")

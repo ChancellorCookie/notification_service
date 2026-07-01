@@ -9,6 +9,7 @@
     <div class="form-group">
         <label class="inline">
             <input type="checkbox" name="notify_on_resolved" value="1" {% if escalation.get('notify_on_resolved') %}checked{% endif %}>
+            <input type="hidden" name="notify_on_resolved" value="0">
             Entwarnung senden, wenn Incident verschwindet
         </label>
     </div>
@@ -37,7 +38,7 @@
                 <tr>
                     <td><input type="text" name="st_{{ row_idx.value }}_severity" value="{{ sev }}" style="width:100%;" placeholder="error"></td>
                     <td><input type="number" name="st_{{ row_idx.value }}_after" value="{{ st.get('after_minutes', 0) }}" min="0" style="width:100%;"></td>
-                    <td><input type="text" name="st_{{ row_idx.value }}_channels" value="{{ st.get('channels', []) | join(', ') }}" style="width:100%;" placeholder="email_lab_lead, whatsapp_lab_lead"></td>
+                    <td><input type="text" name="st_{{ row_idx.value }}_channels" value="{{ st.get('channels', []) | join(', ') }}" style="width:100%;" placeholder="email_lab"></td>
                     <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">&times;</button></td>
                 </tr>
                 {% set row_idx.value = row_idx.value + 1 %}
@@ -59,7 +60,7 @@ function addRow() {
     tr.innerHTML = `
         <td><input type="text" name="st_${rowCount}_severity" value="" style="width:100%;" placeholder="error"></td>
         <td><input type="number" name="st_${rowCount}_after" value="0" min="0" style="width:100%;"></td>
-        <td><input type="text" name="st_${rowCount}_channels" value="" style="width:100%;" placeholder="email_lab_lead"></td>
+        <td><input type="text" name="st_${rowCount}_channels" value="" style="width:100%;" placeholder="email_lab"></td>
         <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">&times;</button></td>`;
     tbody.appendChild(tr);
     rowCount++;

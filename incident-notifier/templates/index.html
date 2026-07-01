@@ -2,72 +2,78 @@
 {% block title %}Dashboard{% endblock %}
 {% block breadcrumb %}Dashboard{% endblock %}
 {% block content %}
-<h1>Dashboard</h1>
+<h1>Übersicht</h1>
 
-<div class="card">
-    <h2>Poll</h2>
-    {% set p = cfg.get("poll", {}) %}
-    <div class="row"><strong>URL:</strong> {{ p.get("url", "-") }}</div>
-    <div class="row"><strong>Intervall:</strong> {{ p.get("interval_seconds", "-") }}s</div>
-    <div class="row"><strong>Severities:</strong> {{ p.get("severities", []) | join(", ") or "-" }}</div>
-    <div class="row"><strong>Auth:</strong> {{ p.get("auth", {}).get("type", "none") }}</div>
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-icon amber" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        </div>
+        <div class="stat-value">{{ stats.active_incidents }}</div>
+        <div class="stat-label">Aktive Incidents</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <div class="stat-value">{{ stats.total_sent }}</div>
+        <div class="stat-label">Nachrichten gesendet</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="stat-value">{{ stats.channels }}</div>
+        <div class="stat-label">Kanäle</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon indigo" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="stat-value">{{ stats.last_poll }}</div>
+        <div class="stat-label">Letzte Sendung</div>
+    </div>
 </div>
 
 <div class="card">
-    <h2>Kanäle</h2>
-    {% set channels = cfg.get("channels", {}) %}
-    {% if channels %}
+    <h2>Letzte Sendungen</h2>
+    {% if stats.recent %}
     <table>
-        <tr><th>Name</th><th>Typ</th><th>Details</th></tr>
-        {% for name, ch in channels.items() %}
-        <tr>
-            <td><strong>{{ name }}</strong></td>
-            <td>{{ ch.get("type", "-") }}</td>
-            <td>
-                {% if ch.type == "email" %}
-                    {{ ch.get("from_addr", "-") }} &rarr; {{ ch.get("to_addrs", []) | join(", ") }}
-                {% elif ch.type == "whatsapp_twilio" %}
-                    {{ ch.get("from_number", "-") }} &rarr; {{ ch.get("to_numbers", []) | join(", ") }}
-                {% elif ch.type == "whatsapp_meta" %}
-                    {{ ch.get("phone_number_id", "-") }}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
+    <thead>
+    <tr>
+        <th>Zeitpunkt</th>
+        <th>Incident</th>
+        <th>Severity</th>
+        <th>Kanal</th>
+        <th>Typ</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for item in stats.recent %}
+    <tr>
+        <td style="white-space:nowrap">{{ item.sent_at_str }}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ item.incident_title }}">{{ item.incident_title or item.incident_id[:12] }}</td>
+        <td>
+            {% if item.severity in ('error','alert','critical') %}
+            <span class="badge badge-error">{{ item.severity }}</span>
+            {% elif item.severity == 'warning' %}
+            <span class="badge badge-warning">{{ item.severity }}</span>
+            {% else %}
+            <span class="badge badge-info">{{ item.severity or '-' }}</span>
+            {% endif %}
+        </td>
+        <td>{{ item.channel }}</td>
+        <td><span class="badge badge-{{ 'success' if item.kind == 'alert' else 'info' }}">{{ item.kind }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
     </table>
     {% else %}
-    <p style="color:#888;">Keine Kanäle konfiguriert.</p>
+    <p style="color: var(--text-muted); text-align: center; padding: 24px;">Noch keine Nachrichten versendet.</p>
     {% endif %}
 </div>
 
-<div class="card">
-    <h2>Eskalation</h2>
-    {% set esc = cfg.get("escalation", {}) %}
-    <div class="row"><strong>Entwarnung:</strong> {{ "Ja" if esc.get("notify_on_resolved") else "Nein" }}</div>
-    {% set stages = esc.get("stages", {}) %}
-    {% if stages %}
-    <table style="margin-top:8px;">
-        <tr><th>Severity</th><th>Nach</th><th>Kanäle</th></tr>
-        {% for sev, stlist in stages.items() %}
-        {% for st in stlist %}
-        <tr>
-            <td><span class="badge {% if sev in ('error','critical') %}badge-err{% elif sev in ('warning','alert') %}badge-warn{% else %}badge-ok{% endif %}">{{ sev }}</span></td>
-            <td>{{ st.after_minutes }} min</td>
-            <td>{{ st.channels | join(", ") }}</td>
-        </tr>
-        {% endfor %}
-        {% endfor %}
-    </table>
-    {% else %}
-    <p style="color:#888;">Keine Eskalationsstufen definiert.</p>
-    {% endif %}
-</div>
-
-<div class="card">
-    <h2>Einstellungen</h2>
-    <div class="row"><strong>State-DB:</strong> {{ cfg.get("state", {}).get("db_path", "-") }}</div>
-    <div class="row"><strong>Log-Level:</strong> {{ cfg.get("logging", {}).get("level", "INFO") }}</div>
-</div>
+<script>
+document.title = 'Incident Notifier';
+</script>
 {% endblock %}

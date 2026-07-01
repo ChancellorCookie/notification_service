@@ -7,7 +7,7 @@ Nach dem Speichern muss der Dienst neu starten (oder /api/reload aufrufen).
 import os
 import logging
 import yaml
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 
 log = logging.getLogger("notifier.web")
 
@@ -38,7 +38,24 @@ def _save(data: dict):
 @app.route("/")
 def index():
     cfg = _load()
-    return render_template("index.html", cfg=cfg)
+    db_path = cfg.get("state", {}).get("db_path", "./state.db")
+    from .state import StateStore
+    from datetime import datetime
+    state = StateStore(db_path)
+    active = state.active()
+    history = state.get_history(50)
+    state.close()
+
+    for item in history:
+        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%Y-%m-%d %H:%M:%S")
+    stats = {
+        "active_incidents": len(active),
+        "total_sent": len(history),
+        "channels": len(cfg.get("channels", {})),
+        "last_poll": datetime.fromtimestamp(history[0]["sent_at"]).strftime("%H:%M:%S") if history else "-",
+        "recent": history[:10],
+    }
+    return render_template("index.html", cfg=cfg, stats=stats)
 
 
 @app.route("/poll", methods=["GET", "POST"])
@@ -59,6 +76,35 @@ def channels():
         flash("Kanaele gespeichert.", "success")
         return redirect(url_for("channels"))
     return render_template("channels.html", channels=cfg.get("channels", {}))
+
+
+@app.route("/channels/delete/<name>", methods=["POST"])
+def delete_channel(name):
+    cfg = _load()
+    channels = cfg.get("channels", {})
+    if name in channels:
+        del channels[name]
+        _save(cfg)
+        flash(f"Kanal '{name}' gelöscht.", "success")
+    else:
+        flash(f"Kanal '{name}' nicht gefunden.", "error")
+    return redirect(url_for("channels"))
+
+
+@app.route("/history")
+def history():
+    from .service import Service
+    import os
+    db_path = _load().get("state", {}).get("db_path", "/var/lib/incident-notifier/state.db")
+    from .state import StateStore
+    from datetime import datetime
+    state = StateStore(db_path)
+    items = state.get_history(200)
+    state.close()
+
+    for item in items:
+        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%Y-%m-%d %H:%M:%S")
+    return render_template("history.html", items=items)
 
 
 @app.route("/escalation", methods=["GET", "POST"])
@@ -89,7 +135,7 @@ def message_templates():
     cfg = _load()
     if request.method == "POST":
         tpl = cfg.setdefault("templates", {})
-        for key in ("alert_subject", "alert_body", "resolved_subject", "resolved_body", "whatsapp_text"):
+        for key in ("alert_subject", "alert_body", "alert_body_html", "resolved_subject", "resolved_body", "resolved_body_html", "whatsapp_text"):
             val = request.form.get(key, "")
             if val.strip():
                 tpl[key] = val
@@ -99,23 +145,18 @@ def message_templates():
         flash("Nachrichten-Templates gespeichert.", "success")
         return redirect(url_for("message_templates"))
 
-    from .formatting import PLACEHOLDER_HELP
+    from .formatting import PLACEHOLDER_HELP, _ALERT_SUBJECT_DEFAULT, _ALERT_BODY_DEFAULT, _ALERT_BODY_HTML_DEFAULT, _RESOLVED_SUBJECT_DEFAULT, _RESOLVED_BODY_DEFAULT, _RESOLVED_BODY_HTML_DEFAULT, _WHATSAPP_TEXT_DEFAULT
     tpl = cfg.get("templates", {})
-    return render_template("messages.html", templates=tpl, placeholders=PLACEHOLDER_HELP)
-
-
-# ---------------------------------------------------------------------------
-# API (fuer spaetere JS-Erweiterungen)
-# ---------------------------------------------------------------------------
-
-@app.route("/api/config")
-def api_config():
-    return jsonify(_load())
-
-
-@app.route("/api/reload", methods=["POST"])
-def api_reload():
-    return jsonify({"status": "ok", "message": "Bitte Dienst manuell neustarten (systemctl restart incident-notifier)"})
+    defaults = {
+        "alert_subject": _ALERT_SUBJECT_DEFAULT,
+        "alert_body": _ALERT_BODY_DEFAULT,
+        "alert_body_html": _ALERT_BODY_HTML_DEFAULT,
+        "resolved_subject": _RESOLVED_SUBJECT_DEFAULT,
+        "resolved_body": _RESOLVED_BODY_DEFAULT,
+        "resolved_body_html": _RESOLVED_BODY_HTML_DEFAULT,
+        "whatsapp_text": _WHATSAPP_TEXT_DEFAULT,
+    }
+    return render_template("messages.html", templates=tpl, placeholders=PLACEHOLDER_HELP, defaults=defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -144,27 +185,24 @@ def _parse_kv_textarea(val: str) -> dict:
     return result
 
 
-def _parse_fields_textarea(val: str) -> dict:
-    """fieldname=json.path pro Zeile."""
-    return _parse_kv_textarea(val)
-
-
 def _handle_poll_save(cfg: dict):
     poll = cfg.setdefault("poll", {})
     poll["url"] = request.form.get("poll_url", "")
     poll["method"] = request.form.get("poll_method", "GET")
     poll["interval_seconds"] = int(request.form.get("poll_interval", 30))
     poll["timeout_seconds"] = int(request.form.get("poll_timeout", 10))
-    poll["verify_tls"] = request.form.get("poll_verify_tls", "true")
-    if poll["verify_tls"] in ("true", "True"):
-        poll["verify_tls"] = True
-    elif poll["verify_tls"] in ("false", "False"):
-        poll["verify_tls"] = False
+    v = request.form.get("poll_verify_tls", "true")
+    poll["verify_tls"] = True if v.lower() == "true" else False if v.lower() == "false" else v
     poll["incident_url_template"] = request.form.get("incident_url_template", "")
 
     # Auth
     auth = poll.setdefault("auth", {})
-    auth["type"] = request.form.get("auth_type", "bearer")
+    auth["type"] = request.form.get("auth_type", "none")
+    auth["token_url"] = request.form.get("auth_token_url", "")
+    auth["client_id"] = request.form.get("auth_client_id", "")
+    auth["client_secret"] = request.form.get("auth_client_secret", "")
+    auth["scope"] = request.form.get("auth_scope", "")
+    auth["audience"] = request.form.get("auth_audience", "")
     auth["token"] = request.form.get("auth_token", "")
 
     # Query params
@@ -180,7 +218,7 @@ def _handle_poll_save(cfg: dict):
     # Response fields
     resp = poll.setdefault("response", {})
     resp["items_path"] = request.form.get("resp_items_path", "")
-    resp["fields"] = _parse_fields_textarea(request.form.get("resp_fields", ""))
+    resp["fields"] = _parse_kv_textarea(request.form.get("resp_fields", ""))
 
     # Severities
     poll["severities"] = _parse_textarea(request.form.get("severities", ""))
@@ -189,6 +227,16 @@ def _handle_poll_save(cfg: dict):
     report = poll.setdefault("report_incident", {})
     report["enabled"] = request.form.get("report_enabled") == "1"
     report["url_template"] = request.form.get("report_url_template", "")
+
+    # Rooms
+    rooms = poll.setdefault("rooms", {})
+    rooms["enabled"] = request.form.get("rooms_enabled") == "1"
+    rooms["url"] = request.form.get("rooms_url", "")
+    rooms["items_path"] = request.form.get("rooms_items_path", "data")
+    try:
+        rooms["cache_seconds"] = int(request.form.get("rooms_cache_seconds", 300))
+    except (ValueError, TypeError):
+        rooms["cache_seconds"] = 300
 
     _save(cfg)
 
@@ -210,6 +258,7 @@ def _handle_channels_save(cfg: dict):
         if ctype == "email":
             ch["smtp_host"] = request.form.get(f"{prefix}smtp_host", "")
             ch["smtp_port"] = int(request.form.get(f"{prefix}smtp_port", 587))
+            ch["use_ssl"] = request.form.get(f"{prefix}use_ssl") == "1"
             ch["use_starttls"] = request.form.get(f"{prefix}use_starttls") == "1"
             ch["username"] = request.form.get(f"{prefix}username", "")
             ch["password"] = request.form.get(f"{prefix}password", "")

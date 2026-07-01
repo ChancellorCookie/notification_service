@@ -11,6 +11,8 @@ geschrieben hat) NUR ueber ein vorab freigegebenes Template.
 
 Abhaengigkeit: pip install twilio
 """
+import json
+
 from .base import Channel
 from .. import formatting
 from ..models import Incident
@@ -28,7 +30,6 @@ class WhatsAppTwilioChannel(Channel):
         for to in c["to_numbers"]:
             kwargs = {"from_": c["from_number"], "to": to}
             if c.get("content_sid"):
-                import json
                 kwargs["content_sid"] = c["content_sid"]
                 kwargs["content_variables"] = json.dumps(
                     formatting.template_variables(inc)

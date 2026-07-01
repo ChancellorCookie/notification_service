@@ -19,20 +19,17 @@ Auth-Typen:
 Unterstuetzt:
   - query_params: zusaetzliche URL-Query-Parameter (z.B. lifecycle=open)
   - Paginierung: automatisches Abholen aller Seiten (response.pagination konfigurierbar)
-  - report_incident: POST /lads/alarms/{incidentId}/report als Dummy (loggt nur)
+  - report_incident: POST /lads/alarms/{incidentId}/report (Eskalations-Dokumentation)
 """
 import logging
 import time
+
 import requests
 
 from .config import get_by_path
 from .models import Incident
 
 log = logging.getLogger("notifier.poller")
-
-
-def _token_key(client_id):
-    return f"_oauth2_token_{client_id}"
 
 
 class Poller:
@@ -42,8 +39,10 @@ class Poller:
         self.query_params = config.get("query_params", {}) or {}
         self.pg = config.get("pagination", {}) or {}
         self.report_cfg = config.get("report_incident", {}) or {}
+        self.rooms_cfg = config.get("rooms", {}) or {}
         self.session = requests.Session()
         self._token_cache = {}  # client_id -> {"token": str, "expires_at": float}
+        self._rooms_cache = None  # {"data": [...], "fetched_at": float}
 
         auth = config.get("auth", {}) or {}
         atype = auth.get("type", "none")
@@ -65,7 +64,7 @@ class Poller:
             return
 
         cid = oa.get("client_id", "")
-        ckey = _token_key(cid)
+        ckey = f"_oauth2_token_{cid}"
         cached = self._token_cache.get(ckey)
 
         if cached and cached["expires_at"] > time.time() + 10:
@@ -111,13 +110,63 @@ class Poller:
         self.session.headers["Authorization"] = f"Bearer {token}"
         log.info("OAuth2-Token erhalten, gueltig fuer %ds", expires_in)
 
+    def _fetch_rooms(self):
+        if not self.rooms_cfg.get("enabled", False):
+            return
+        cache_ttl = int(self.rooms_cfg.get("cache_seconds", 300))
+        now = time.time()
+        if self._rooms_cache and now - self._rooms_cache["fetched_at"] < cache_ttl:
+            return
+
+        rooms_url = self.rooms_cfg.get("url", "")
+        if not rooms_url:
+            return
+
+        log.info("Hole Raum-Daten von %s", rooms_url)
+        try:
+            self._ensure_token()
+            verify = self.c.get("verify_tls", True)
+            resp = self.session.get(
+                rooms_url,
+                timeout=self.c.get("timeout_seconds", 10),
+                verify=verify,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            items = get_by_path(data, self.rooms_cfg.get("items_path", "data")) or []
+            if not isinstance(items, list):
+                log.warning("rooms items_path lieferte kein Array")
+                return
+            self._rooms_cache = {"data": items, "fetched_at": now}
+            log.info("%d Raeume geladen", len(items))
+        except Exception:
+            log.exception("Fehler beim Laden der Raum-Daten")
+
+    def _enrich_room(self, inc: Incident):
+        cache = self._rooms_cache
+        if not cache:
+            return
+
+        for room in cache["data"]:
+            monitoring = room.get("monitoring") or []
+            for mon in monitoring:
+                mon_path = mon.get("path", "")
+                if not mon_path:
+                    continue
+                if inc.source.startswith(mon_path) or mon_path.startswith(inc.source):
+                    contact = room.get("contact") or {}
+                    inc.room_name = room.get("name", "")
+                    inc.room_number = room.get("number", "")
+                    inc.room_contact_name = contact.get("name", "")
+                    inc.room_contact_email = contact.get("email", "")
+                    inc.room_contact_details = contact.get("details", "")
+                    return
+
     def report_incident(self, incident_id: str, comment: str = ""):
-        """Markiert einen Incident in der Monitoring-Software als 'reported'
+        """Markiert einen Incident in der LCC API als 'reported'
         (Eskalations-Schritt dokumentiert).
 
-        Aktuell DUMMY-Implementierung: loggt nur, sendet kein echtes POST.
-        Sobald die API erreichbar ist, wird hier das POST abgesetzt.
-        """
+        POST /lads/alarms/{incidentId}/report"""
         enabled = bool(self.report_cfg.get("enabled", False))
         if not enabled:
             log.debug("report_incident deaktiviert, ueberspringe %s", incident_id)
@@ -126,20 +175,37 @@ class Poller:
         url_tpl = self.report_cfg.get(
             "url_template", "{base_url}/lads/alarms/{incident_id}/report"
         )
-        base = self.c.get("url", "").rstrip("/")
+        base = self.c.get("url", "").replace("/api/v2/incidents", "")
         url = url_tpl.format(base_url=base, incident_id=incident_id)
 
-        payload = {}
-        if comment:
-            payload["comment"] = comment
+        payload = {"comment": comment} if comment else {}
 
-        log.info(
-            "[DUMMY] report_incident wuerde POST an %s senden (payload=%s)",
-            url, payload,
-        )
+        log.info("report_incident: POST %s (comment=%s)", url, comment or "-")
+        try:
+            self._ensure_token()
+            verify = self.c.get("verify_tls", True)
+            resp = self.session.post(
+                url,
+                json=payload if payload else None,
+                timeout=self.c.get("timeout_seconds", 10),
+                verify=verify,
+            )
+            if resp.status_code in (200, 204):
+                log.info(
+                    "Incident %s erfolgreich als reported markiert", incident_id
+                )
+            else:
+                log.warning(
+                    "report_incident fehlgeschlagen: HTTP %s - %s",
+                    resp.status_code, resp.text[:200],
+                )
+        except Exception:
+            log.exception("report_incident fuer %s fehlgeschlagen", incident_id)
 
     def fetch(self):
         self._ensure_token()
+        self._fetch_rooms()
+
         c = self.c
         verify = c.get("verify_tls", True)
         rcfg = c.get("response", {})
@@ -175,6 +241,7 @@ class Poller:
                 inc = self._map(item, fields)
                 if allowed and inc.severity not in allowed:
                     continue
+                self._enrich_room(inc)
                 all_items.append(inc)
 
             if limit <= 0:
@@ -238,8 +305,6 @@ class Poller:
             strict_audited=fbool("strict_audited"),
             active=fbool("active", True),
             event_id=str(f("event_id", "")),
-            updated_at=f("updated_at", None),
-            closed_at=f("closed_at", None),
             high_high_limit=ffloat("high_high_limit"),
             high_limit=ffloat("high_limit"),
             low_limit=ffloat("low_limit"),

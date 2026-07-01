@@ -38,6 +38,7 @@
         <input type="text" name="incident_url_template" value="{{ cfg.get('incident_url_template', '') }}" placeholder="https://monitoring.local/incidents/{id}">
         <span class="help">{id} wird durch die Incident-ID ersetzt</span>
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
@@ -45,25 +46,52 @@
     <div class="form-group">
         <label>Auth-Typ</label>
         <select name="auth_type">
-            {% set at = cfg.get('auth', {}).get('type', 'none') %}
+            {% set at = cfg.get('auth', {}).get('type', 'oauth2') %}
+            <option value="oauth2" {% if at == 'oauth2' %}selected{% endif %}>OAuth2 (Client Credentials)</option>
             <option value="bearer" {% if at == 'bearer' %}selected{% endif %}>Bearer Token</option>
             <option value="basic" {% if at == 'basic' %}selected{% endif %}>Basic Auth</option>
             <option value="none" {% if at == 'none' %}selected{% endif %}>Keine</option>
         </select>
     </div>
     <div class="form-group">
+        <label>Token-URL</label>
+        <input type="text" name="auth_token_url" value="{{ cfg.get('auth', {}).get('token_url', '') }}" placeholder="https://lcc.ieu.local/oauth/token">
+    </div>
+    <div class="inline">
+        <div class="form-group" style="flex:1;">
+            <label>Client-ID</label>
+            <input type="text" name="auth_client_id" value="{{ cfg.get('auth', {}).get('client_id', '') }}" placeholder="${OAUTH_CLIENT_ID}">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Client-Secret</label>
+            <input type="password" name="auth_client_secret" value="{{ cfg.get('auth', {}).get('client_secret', '') }}" placeholder="${OAUTH_CLIENT_SECRET}">
+        </div>
+    </div>
+    <div class="inline">
+        <div class="form-group" style="flex:1;">
+            <label>Scope</label>
+            <input type="text" name="auth_scope" value="{{ cfg.get('auth', {}).get('scope', '') }}">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Audience (optional)</label>
+            <input type="text" name="auth_audience" value="{{ cfg.get('auth', {}).get('audience', '') }}">
+        </div>
+    </div>
+    <div class="form-group">
         <label>Token / Umgebungsvariable</label>
         <input type="text" name="auth_token" value="{{ cfg.get('auth', {}).get('token', '') }}" placeholder="${MONITORING_API_TOKEN}">
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
     <h2>Query-Parameter</h2>
     <div class="form-group">
         <label>Parameter (key=value, eine pro Zeile)</label>
-        <textarea name="query_params" rows="3" placeholder="lifecycle=open">{% for k, v in cfg.get('query_params', {}).items() %}{{ k }}={{ v }}
+        <textarea name="query_params" rows="3" placeholder="active=true">{% for k, v in cfg.get('query_params', {}).items() %}{{ k }}={{ v }}
 {% endfor %}</textarea>
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
@@ -86,6 +114,7 @@
         <label>Total-Pfad im Response (gepunktet, leer = Auto)</label>
         <input type="text" name="pg_total_path" value="{{ cfg.get('pagination', {}).get('total_path', '') }}" placeholder="meta.items.total">
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
@@ -98,8 +127,9 @@
         <label>Feld-Zuordnung (interner_name=api.feld.pfad, eine pro Zeile)</label>
         <textarea name="resp_fields" rows="12" placeholder="id=incidentId&#10;title=message&#10;severity=severity">{% for k, v in cfg.get('response', {}).get('fields', {}).items() %}{{ k }}={{ v }}
 {% endfor %}</textarea>
-        <span class="help">Verfuegbare Felder: id, title, severity, source, description, timestamp, status, url, max_severity, help, comment, acknowledged, confirmed, reported, flap_count, strict_audited, active, event_id, updated_at, closed_at, high_high_limit, high_limit, low_limit, low_low_limit</span>
+        <span class="help">Verfuegbare Felder: id, title, severity, source, description, timestamp, status, url, max_severity, help, comment, acknowledged, confirmed, reported, flap_count, strict_audited, active, event_id, high_high_limit, high_limit, low_limit, low_low_limit</span>
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
@@ -109,6 +139,7 @@
         <textarea name="severities" rows="4" placeholder="error&#10;alert&#10;warning">{% for s in cfg.get('severities', []) %}{{ s }}
 {% endfor %}</textarea>
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
 <div class="card">
@@ -116,15 +147,40 @@
     <div class="form-group">
         <label class="inline">
             <input type="checkbox" name="report_enabled" value="1" {% if cfg.get('report_incident', {}).get('enabled') %}checked{% endif %}>
-            Aktiviert (aktuell DUMMY - loggt nur)
+            <input type="hidden" name="report_enabled" value="0">
+            Aktiviert
         </label>
     </div>
     <div class="form-group">
         <label>URL-Template</label>
         <input type="text" name="report_url_template" value="{{ cfg.get('report_incident', {}).get('url_template', '{base_url}/lads/alarms/{incident_id}/report') }}">
     </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
 </div>
 
-<button type="submit" class="btn btn-primary">Speichern</button>
+<div class="card">
+    <h2>Raum-Anreicherung (GET /rooms/)</h2>
+    {% set rooms = cfg.get('rooms', {}) %}
+    <div class="form-group">
+        <label class="inline">
+            <input type="checkbox" name="rooms_enabled" value="1" {% if rooms.get('enabled') %}checked{% endif %}>
+            <input type="hidden" name="rooms_enabled" value="0">
+            Aktiviert (Incidents werden mit Raum-Infos angereichert)
+        </label>
+    </div>
+    <div class="form-group">
+        <label>Rooms URL</label>
+        <input type="text" name="rooms_url" value="{{ rooms.get('url', '') }}">
+    </div>
+    <div class="form-group">
+        <label>Items Path</label>
+        <input type="text" name="rooms_items_path" value="{{ rooms.get('items_path', 'data') }}">
+    </div>
+    <div class="form-group">
+        <label>Cache (Sekunden)</label>
+        <input type="number" name="rooms_cache_seconds" value="{{ rooms.get('cache_seconds', 300) }}">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+</div>
 </form>
 {% endblock %}

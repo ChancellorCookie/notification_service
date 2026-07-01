@@ -74,6 +74,7 @@ class Service:
             try:
                 _retry(lambda: channel.send(inc, kind))
                 any_ok = True
+                self.state.log_send(inc.id, cname, kind, inc.title, inc.severity)
                 log.info("%s: Incident %s ueber Kanal '%s'", kind, inc.id, cname)
             except Exception as e:  # noqa: BLE001
                 log.error("Kanal '%s' fehlgeschlagen fuer %s: %s", cname, inc.id, e)
@@ -88,7 +89,7 @@ class Service:
         if not stages:
             log.debug("Keine Stufen fuer Severity '%s', ueberspringe %s", inc.severity, inc.id)
             return
-        rec = self.state.get(inc.key)
+        rec = self.state.get(inc.id)
         now = time.time()
 
         if rec is None or rec["state"] != "active":
@@ -106,7 +107,7 @@ class Service:
             wait = float(stages[nxt].get("after_minutes", 0)) * 60.0
             if now - rec["stage_sent_at"] >= wait:
                 if self._send(inc, self._stage_channels(inc.severity, nxt)):
-                    self.state.advance(inc.key, nxt)
+                    self.state.advance(inc.id, nxt)
 
     def _handle_disappeared(self):
         """Aktive Vorfaelle, die nicht mehr im offenen Feed sind = quittiert/geschlossen."""
@@ -124,7 +125,7 @@ class Service:
 
     def run_once(self):
         incidents = self.poller.fetch()
-        self._open_keys = {inc.key for inc in incidents}
+        self._open_keys = {inc.id for inc in incidents}
         log.debug("%d offene, relevante Incidents abgeholt", len(incidents))
         for inc in incidents:
             self._handle_open(inc)

@@ -19,15 +19,18 @@ class EmailChannel(Channel):
         if kind == "resolved":
             subject = formatting.resolved_subject(inc, tpl)
             body = formatting.resolved_body(inc, tpl)
+            body_html = formatting.resolved_body_html(inc, tpl)
         else:
             subject = formatting.email_subject(inc, tpl)
             body = formatting.email_body(inc, tpl)
+            body_html = formatting.email_body_html(inc, tpl)
 
         msg = EmailMessage()
         msg["From"] = c["from_addr"]
         msg["To"] = ", ".join(c["to_addrs"])
         msg["Subject"] = subject
         msg.set_content(body)
+        msg.add_alternative(body_html, subtype="html")
 
         host = c["smtp_host"]
         port = int(c.get("smtp_port", 587))

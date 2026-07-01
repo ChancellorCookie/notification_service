@@ -1,6 +1,5 @@
 """Datenmodell fuer einen Incident, unabhaengig von der konkreten Monitoring-API."""
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -10,7 +9,7 @@ class Incident:
     severity: str = "info"        # NOTICE | INFO | WARNING | ALERT | ERROR  (LCC API)
     source: str = ""              # Host / Geraet / Komponente
     description: str = ""
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     status: str = "open"          # NEW | ACKNOWLEDGED | CONFIRMED | REPORTED | CLOSED | RESOLVED
     url: str = ""                 # Direktlink zum Incident im Monitoring-Tool
     raw: dict = field(default_factory=dict)
@@ -28,19 +27,19 @@ class Incident:
     strict_audited: bool = False  # braucht explicit Confirm zum Schliessen?
     active: bool = True           # Ist die zugrundeliegende Condition noch aktiv?
     event_id: str = ""            # ausloesendes Event
-    updated_at: Optional[str] = None
-    closed_at: Optional[str] = None
 
     # Alarm-Schwellwerte (LimitAlarm)
-    high_high_limit: Optional[float] = None  # kritisch-hoch
-    high_limit: Optional[float] = None       # warnung-hoch
-    low_limit: Optional[float] = None        # warnung-niedrig
-    low_low_limit: Optional[float] = None    # kritisch-niedrig
+    high_high_limit: float | None = None  # kritisch-hoch
+    high_limit: float | None = None       # warnung-hoch
+    low_limit: float | None = None        # warnung-niedrig
+    low_low_limit: float | None = None    # kritisch-niedrig
 
-    @property
-    def key(self) -> str:
-        """Stabiler Schluessel fuer die Deduplizierung."""
-        return str(self.id)
+    # Raum-Infos (angereichert ueber GET /rooms/ + Monitoring-Pfad-Matching)
+    room_name: str = ""
+    room_number: str = ""
+    room_contact_name: str = ""
+    room_contact_email: str = ""
+    room_contact_details: str = ""
 
     @property
     def device_name(self) -> str:

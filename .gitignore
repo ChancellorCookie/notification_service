@@ -14,6 +14,12 @@ build/
 # State DB
 *.db
 
+# Test configs (enthalten ggf. Credentials)
+config.live-test.yaml
+test_live.py
+test_live_email.py
+.env.test
+
 # IDE
 .vscode/
 .idea/

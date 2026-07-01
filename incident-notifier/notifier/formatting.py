@@ -6,8 +6,6 @@ wird das Built-in-Format verwendet.
 """
 from .models import Incident
 
-_EMOJI = {"critical": "\U0001F6A8", "warning": "\u26A0\uFE0F", "info": "\u2139\uFE0F",
-          "error": "\U0001F6A8", "alert": "\u26A0\uFE0F", "notice": "\u2139\uFE0F"}
 _SEVERITY_LABEL = {"critical": "KRITISCH", "error": "FEHLER", "alert": "ALARM",
                    "warning": "WARNUNG", "info": "INFO", "notice": "HINWEIS"}
 
@@ -41,11 +39,189 @@ PLACEHOLDER_HELP = {
     "low_low_limit": "Kritisch-Niedrig-Schwelle",
     "threshold_list": "Alle Schwellwerte als Text (kommagetrennt)",
     "flags": "Status-Flags als Text (Quittiert, Bestaetigt, ...)",
+    "room_name": "Raumname (z.B. Entwicklungslabor)",
+    "room_number": "Raumnummer (z.B. A-101)",
+    "room_contact_name": "Ansprechpartner (z.B. Moriz Walter)",
+    "room_contact_email": "E-Mail des Ansprechpartners",
+    "room_contact_details": "Durchwahl/Details (z.B. T.345)",
+    "severity_bg": "(HTML) Hintergrundfarbe passend zur Severity",
+    "severity_fg": "(HTML) Textfarbe passend zur Severity",
+    "t_limits": "(HTML) Schwellwerte als Tabellenzeilen",
+    "t_flags": "(HTML) Status-Flags + Flattern-Warnung als Tabellenzeile",
+    "t_help": "(HTML) Handlungsempfehlung als Tabellenzeile",
 }
 
 
-def _substitute(template: str, inc: Incident) -> str:
-    """Ersetzt {variable}-Platzhalter mit Werten aus dem Incident."""
+# ---------------------------------------------------------------------------
+# Built-in Fallback-Templates
+# ---------------------------------------------------------------------------
+
+_ALERT_SUBJECT_DEFAULT = "[{severity_label}] [{room_name}] {title}"
+_ALERT_BODY_DEFAULT = """Severity:    {severity_label}
+Titel:       {title}
+Raum:        {room_name} ({room_number})
+Kontakt:     {room_contact_name} ({room_contact_email}, {room_contact_details})
+Quelle:      {source}
+Geraet:      {device_name}
+Zeitpunkt:   {timestamp}
+Status:      {status}
+Incident-ID: {id}
+{threshold_list}
+{flap_warning}
+{flags}
+
+Zum Quittieren oeffnen: {url}
+
+HANDLUNGSEMPFEHLUNG:
+{help}
+
+Beschreibung:
+{description}"""
+
+_RESOLVED_SUBJECT_DEFAULT = "[ENTWARNUNG] [{room_name}] {title}"
+_RESOLVED_BODY_DEFAULT = """Der folgende Vorfall ist nicht mehr offen (quittiert oder geschlossen):
+
+Titel:       {title}
+Raum:        {room_name} ({room_number})
+Quelle:      {source}
+Geraet:      {device_name}
+Incident-ID: {id}"""
+
+_WHATSAPP_TEXT_DEFAULT = "{severity_label} Incident\n{title}\nQuelle: {source}\nGeraet: {device_name}\nStatus: {status}\n{help}\nZeit: {timestamp}\n{url}\nID: {id}"
+
+_SEV_COLORS = {
+    "error":   ("#dc3545", "#fff"),
+    "critical": ("#dc3545", "#fff"),
+    "alert":   ("#fd7e14", "#fff"),
+    "warning": ("#ffc107", "#212529"),
+    "notice":  ("#17a2b8", "#fff"),
+    "info":    ("#17a2b8", "#fff"),
+}
+
+_ALERT_BODY_HTML_DEFAULT = """\
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:0">
+<table style="width:100%%;max-width:600px;border-collapse:collapse" cellpadding="0" cellspacing="0">
+<tr><td style="background:{severity_bg};color:{severity_fg};padding:16px 20px;font-size:18px;font-weight:bold">
+{severity_label} &ndash; {title}
+</td></tr>
+<tr><td style="padding:16px 20px;border:1px solid #e0e0e0;border-top:none">
+<table style="width:100%%;border-collapse:collapse" cellpadding="6" cellspacing="0">
+<tr><td style="color:#666;width:140px">Raum</td><td>{room_name} ({room_number})</td></tr>
+<tr><td style="color:#666">Kontakt</td><td>{room_contact_name} &lt;{room_contact_email}&gt; {room_contact_details}</td></tr>
+<tr><td style="color:#666">Gerät</td><td>{device_name}</td></tr>
+<tr><td style="color:#666">Quelle</td><td style="font-size:13px">{source}</td></tr>
+<tr><td style="color:#666">Zeitpunkt</td><td>{timestamp}</td></tr>
+<tr><td style="color:#666">Status</td><td>{status}</td></tr>
+<tr><td style="color:#666">ID</td><td style="font-size:13px">{id}</td></tr>
+{t_limits}
+{t_flags}
+</table>
+</td></tr>
+{t_help}
+<tr><td style="padding:16px 20px;text-align:center">
+<a href="{url}" style="display:inline-block;background:#0066cc;color:#fff;padding:10px 24px;text-decoration:none;border-radius:4px;font-weight:bold">Im LCC öffnen</a>
+</td></tr>
+</table>
+</body></html>"""
+
+_RESOLVED_BODY_HTML_DEFAULT = """\
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:0">
+<table style="width:100%%;max-width:600px;border-collapse:collapse" cellpadding="0" cellspacing="0">
+<tr><td style="background:#28a745;color:#fff;padding:16px 20px;font-size:18px;font-weight:bold">
+ENTWARNUNG &ndash; {title}
+</td></tr>
+<tr><td style="padding:16px 20px;border:1px solid #e0e0e0;border-top:none">
+<p>Der folgende Vorfall ist nicht mehr offen (quittiert oder geschlossen):</p>
+<table style="width:100%%;border-collapse:collapse" cellpadding="6" cellspacing="0">
+<tr><td style="color:#666;width:140px">Raum</td><td>{room_name} ({room_number})</td></tr>
+<tr><td style="color:#666">Gerät</td><td>{device_name}</td></tr>
+<tr><td style="color:#666">Quelle</td><td style="font-size:13px">{source}</td></tr>
+<tr><td style="color:#666">ID</td><td style="font-size:13px">{id}</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
+def _get_template(templates_cfg: dict | None, key: str, default: str) -> str:
+    if templates_cfg and templates_cfg.get(key):
+        return templates_cfg[key]
+    return default
+
+
+# ---------------------------------------------------------------------------
+# Oeffentliche Formatierungs-Funktionen
+# ---------------------------------------------------------------------------
+
+def _substitute_html(template: str, inc: Incident) -> str:
+    sev_label = _SEVERITY_LABEL.get(inc.severity, inc.severity.upper())
+    sev_color = _SEV_COLORS.get(inc.severity, ("#6c757d", "#fff"))
+
+    limits = []
+    if inc.high_high_limit is not None:
+        limits.append(f"<tr><td style='color:#666'>Kritisch-Hoch</td><td style='color:#dc3545;font-weight:bold'>&gt; {inc.high_high_limit}</td></tr>")
+    if inc.high_limit is not None:
+        limits.append(f"<tr><td style='color:#666'>Warnung-Hoch</td><td style='color:#fd7e14'>&gt; {inc.high_limit}</td></tr>")
+    if inc.low_limit is not None:
+        limits.append(f"<tr><td style='color:#666'>Warnung-Niedrig</td><td style='color:#fd7e14'>&lt; {inc.low_limit}</td></tr>")
+    if inc.low_low_limit is not None:
+        limits.append(f"<tr><td style='color:#666'>Kritisch-Niedrig</td><td style='color:#dc3545;font-weight:bold'>&lt; {inc.low_low_limit}</td></tr>")
+
+    flags = []
+    if inc.acknowledged:
+        flags.append("Quittiert")
+    if inc.confirmed:
+        flags.append("Bestätigt")
+    if inc.reported:
+        flags.append("Gemeldet")
+    if inc.strict_audited:
+        flags.append("Confirm erforderlich")
+    flags_str = ", ".join(flags)
+    flap_str = f"ALARM FLATTERT {inc.flap_count}x!" if inc.flap_count > 0 else ""
+
+    help_html = ""
+    if inc.help:
+        help_html = f"<tr><td style='padding:12px 20px;background:#fff3cd;border:1px solid #e0e0e0;border-top:none;font-size:14px'><strong>Handlungsempfehlung:</strong><br>{inc.help}</td></tr>"
+
+    vals = {
+        "severity": inc.severity,
+        "severity_label": sev_label,
+        "severity_bg": sev_color[0],
+        "severity_fg": sev_color[1],
+        "title": inc.title,
+        "source": inc.source,
+        "device_name": inc.device_name,
+        "room_name": inc.room_name or "-",
+        "room_number": inc.room_number,
+        "room_contact_name": inc.room_contact_name,
+        "room_contact_email": inc.room_contact_email,
+        "room_contact_details": inc.room_contact_details,
+        "timestamp": inc.timestamp or "-",
+        "status": inc.status,
+        "id": inc.id,
+        "url": inc.url,
+        "help": inc.help,
+        "t_limits": "\n".join(limits),
+        "t_flags": f"<tr><td style='color:#666'>Flags</td><td>{flags_str} {flap_str}</td></tr>" if (flags or flap_str) else "",
+        "t_help": help_html,
+    }
+    return _substitute(template, inc, vals)
+
+
+def _substitute(template: str, inc: Incident, vals: dict | None = None) -> str:
+    if vals is None:
+        vals = _build_vals(inc)
+    return _do_substitute(template, vals)
+
+
+def _do_substitute(template: str, vals: dict) -> str:
+    class _FormatDict(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+    return template.format_map(_FormatDict(vals))
+
+
+def _build_vals(inc: Incident) -> dict:
     sev_label = _SEVERITY_LABEL.get(inc.severity, inc.severity.upper())
     max_sev_label = _SEVERITY_LABEL.get(inc.max_severity, inc.max_severity.upper()) if inc.max_severity else ""
     ja_nein = lambda b: "Ja" if b else "Nein"
@@ -70,7 +246,7 @@ def _substitute(template: str, inc: Incident) -> str:
     if inc.low_low_limit is not None:
         thresholds.append(f"Kritisch-Niedrig < {inc.low_low_limit}")
 
-    vals = {
+    return {
         "severity": inc.severity,
         "severity_label": sev_label,
         "max_severity": inc.max_severity,
@@ -99,58 +275,13 @@ def _substitute(template: str, inc: Incident) -> str:
         "low_low_limit": str(inc.low_low_limit) if inc.low_low_limit is not None else "",
         "threshold_list": ", ".join(thresholds),
         "flags": ", ".join(flags),
+        "room_name": inc.room_name,
+        "room_number": inc.room_number,
+        "room_contact_name": inc.room_contact_name,
+        "room_contact_email": inc.room_contact_email,
+        "room_contact_details": inc.room_contact_details,
     }
 
-    result = template
-    for key, val in vals.items():
-        result = result.replace("{" + key + "}", str(val))
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Built-in Fallback-Templates
-# ---------------------------------------------------------------------------
-
-_ALERT_SUBJECT_DEFAULT = "[{severity_label}] [{device_name}] {title}"
-_ALERT_BODY_DEFAULT = """Severity:    {severity_label}
-Titel:       {title}
-Quelle:      {source}
-Geraet:      {device_name}
-Zeitpunkt:   {timestamp}
-Status:      {status}
-Incident-ID: {id}
-{threshold_list}
-{flap_warning}
-{flags}
-
-Zum Quittieren oeffnen: {url}
-
-HANDLUNGSEMPFEHLUNG:
-{help}
-
-Beschreibung:
-{description}"""
-
-_RESOLVED_SUBJECT_DEFAULT = "[ENTWARNUNG] [{device_name}] {title}"
-_RESOLVED_BODY_DEFAULT = """Der folgende Vorfall ist nicht mehr offen (quittiert oder geschlossen):
-
-Titel:       {title}
-Quelle:      {source}
-Geraet:      {device_name}
-Incident-ID: {id}"""
-
-_WHATSAPP_TEXT_DEFAULT = "{severity_label} Incident\n{title}\nQuelle: {source}\nGeraet: {device_name}\nStatus: {status}\n{help}\nZeit: {timestamp}\n{url}\nID: {id}"
-
-
-def _get_template(templates_cfg: dict | None, key: str, default: str) -> str:
-    if templates_cfg and templates_cfg.get(key):
-        return templates_cfg[key]
-    return default
-
-
-# ---------------------------------------------------------------------------
-# Oeffentliche Formatierungs-Funktionen
-# ---------------------------------------------------------------------------
 
 def email_subject(inc: Incident, templates_cfg: dict | None = None) -> str:
     tpl = _get_template(templates_cfg, "alert_subject", _ALERT_SUBJECT_DEFAULT)
@@ -176,6 +307,16 @@ def whatsapp_text(inc: Incident, templates_cfg: dict | None = None) -> str:
     """Freitext fuer das 24h-Fenster / die Twilio-Sandbox."""
     tpl = _get_template(templates_cfg, "whatsapp_text", _WHATSAPP_TEXT_DEFAULT)
     return _substitute(tpl, inc)
+
+
+def email_body_html(inc: Incident, templates_cfg: dict | None = None) -> str:
+    tpl = _get_template(templates_cfg, "alert_body_html", _ALERT_BODY_HTML_DEFAULT)
+    return _substitute_html(tpl, inc)
+
+
+def resolved_body_html(inc: Incident, templates_cfg: dict | None = None) -> str:
+    tpl = _get_template(templates_cfg, "resolved_body_html", _RESOLVED_BODY_HTML_DEFAULT)
+    return _substitute_html(tpl, inc)
 
 
 def template_variables(inc: Incident) -> dict:

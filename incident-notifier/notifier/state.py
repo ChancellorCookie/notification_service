@@ -32,6 +32,19 @@ class StateStore:
             )
             """
         )
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS send_history (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                sent_at       REAL NOT NULL,
+                incident_id   TEXT NOT NULL,
+                incident_title TEXT,
+                severity      TEXT,
+                channel       TEXT NOT NULL,
+                kind          TEXT NOT NULL DEFAULT 'alert'
+            )
+            """
+        )
         self.conn.commit()
 
     def get(self, key: str):
@@ -51,7 +64,7 @@ class StateStore:
                 state='active', severity=excluded.severity,
                 title=excluded.title, source=excluded.source
             """,
-            (inc.key, now, stage, now, inc.severity, inc.title, inc.source),
+            (inc.id, now, stage, now, inc.severity, inc.title, inc.source),
         )
         self.conn.commit()
 
@@ -76,3 +89,16 @@ class StateStore:
 
     def close(self):
         self.conn.close()
+
+    def log_send(self, incident_id: str, channel: str, kind: str = "alert", title: str = "", severity: str = ""):
+        self.conn.execute(
+            "INSERT INTO send_history (sent_at, incident_id, incident_title, severity, channel, kind) VALUES (?, ?, ?, ?, ?, ?)",
+            (time.time(), incident_id, title, severity, channel, kind),
+        )
+        self.conn.commit()
+
+    def get_history(self, limit: int = 100):
+        rows = self.conn.execute(
+            "SELECT * FROM send_history ORDER BY sent_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]

@@ -11,15 +11,15 @@ poll:
   timeout_seconds: 10
   verify_tls: true                   # true | false | "/etc/ssl/certs/interne-ca.pem"
 
-  # Query-Parameter fuer die API (z.B. lifecycle=open filtert nur offene Incidents)
+  # Query-Parameter fuer die API (Bruno empfiehlt active=true)
   query_params:
-    lifecycle: "open"                # "open" = noch nicht resolved/done
+    active: "true"                   # nur aktive Incidents abfragen
     # severity: "ERROR"              # optional: nur bestimmte Severity
     # context: "DeviceSet/S1-1016939" # optional: nur Incidents eines Geraets
 
   # Direktlink zum Incident im Tool. Aus API-Feld (response.fields.url) ODER
   # hier als Vorlage mit {id}. Damit kann die Laborleitung direkt quittieren.
-  incident_url_template: "https://lcc.ieu.local/incidents/{id}"
+  incident_url_template: "https://lcc.ieu.local/error-history"
 
   auth:
     # LCC API verwendet OAuth2 Client Credentials Flow:
@@ -27,8 +27,8 @@ poll:
     token_url: "https://lcc.ieu.local/oauth/token"
     client_id: "${OAUTH_CLIENT_ID}"
     client_secret: "${OAUTH_CLIENT_SECRET}"
-    scope: "openid"                  # vom LCC-Entwickler vorgegeben
-    audience: "server:client_id:lcc-api"
+    scope: "openid audience:server:client_id:lcc-api"   # audience ist Teil des Scopes (Dex-Format)
+    audience: ""                     # audience nicht separat senden, ist bereits im Scope-String
 
   # Paginierung: die LCC API liefert max. 20 Items pro Seite.
   # Der Poller holt automatisch alle Seiten, bis total erreicht ist.
@@ -64,8 +64,6 @@ poll:
       strict_audited: "strictAudited"
       active: "active"
       event_id: "eventId"
-      updated_at: "updatedAt"
-      closed_at: "closedAt"
       high_high_limit: "highHighLimit"
       high_limit: "highLimit"
       low_limit: "lowLimit"
@@ -74,11 +72,18 @@ poll:
   # Nur diese Severities werden verarbeitet (LCC verwendet Grossbuchstaben)
   severities: ["error", "alert", "warning"]
 
-  # Optional: Incident nach erfolgreicher Benachrichtigung als "reported"
-  # markieren (POST /lads/alarms/{incidentId}/report). Aktuell DUMMY.
+  # Incident nach erfolgreicher Benachrichtigung als "reported"
+  # markieren (POST /lads/alarms/{incidentId}/report).
   report_incident:
-    enabled: false                    # true = POST wird abgesetzt (noch DUMMY)
+    enabled: true                     # true = nach Benachrichtigung POST /lads/alarms/{incidentId}/report
     url_template: "{base_url}/lads/alarms/{incident_id}/report"
+
+  # Raum-Infos aus GET /rooms/ laden und Incidents anreichern
+  rooms:
+    enabled: true
+    url: "https://lcc.ieu.local/api/v2/rooms"
+    items_path: "data"               # gepunkteter Pfad zum Raum-Array
+    cache_seconds: 300               # Raeume nur alle 5min neu laden
 
 # Eskalation = nur zeitbasierte Erinnerung, solange der Vorfall offen bleibt.
 # Quittierung passiert im Tool -> Vorfall verschwindet aus dem Feed -> Stopp.
@@ -86,23 +91,24 @@ escalation:
   notify_on_resolved: false          # true = kurze Entwarnung, wenn ein Vorfall verschwindet
   stages:
     error:
-      - { after_minutes: 0,  channels: ["email_lab_lead"] }
+      - { after_minutes: 0,  channels: ["email_lab"] }
     alert:
-      - { after_minutes: 0,  channels: ["email_lab_lead"] }
+      - { after_minutes: 0,  channels: ["email_lab"] }
     warning:
-      - { after_minutes: 0,  channels: ["email_lab_lead"] }
+      - { after_minutes: 0,  channels: ["email_lab"] }
 
 channels:
-  email_lab_lead:
+  email_lab:
     type: "email"
-    smtp_host: "smtp.local"
-    smtp_port: 587
-    use_starttls: true
+    smtp_host: "host265.alfahosting-server.de"
+    smtp_port: 465
+    use_ssl: true
+    use_starttls: false
     username: "${SMTP_USER}"
     password: "${SMTP_PASS}"
-    from_addr: "monitoring@lab.local"
+    from_addr: "laboperator@iuta.de"
     to_addrs:
-      - "laborleitung@lab.local"
+      - "laboperator@iuta.de"
 
   # Spaeter aktivierbar (Code liegt bereit):
   # whatsapp_lab_lead:
@@ -132,12 +138,19 @@ webui:
 #   {acknowledged}, {confirmed}, {reported}, {flap_count}, {flap_warning},
 #   {high_high_limit}, {high_limit}, {low_limit}, {low_low_limit},
 #   {threshold_list}, {flags}, {max_severity}, {max_severity_label},
-#   {event_id}, {strict_audited}, {active}
+#   {event_id}, {strict_audited}, {active},
+#   {room_name}, {room_number}, {room_contact_name}, {room_contact_email}, {room_contact_details}
+# 
+# HTML-Templates nutzen dieselben Platzhalter. Zusätzlich verfügbar in HTML:
+#   {severity_bg}, {severity_fg} (Farbcodes passend zur Severity)
+#   {t_limits}, {t_flags}, {t_help} (fertige Tabellenzeilen)
 # ---------------------------------------------------------------------------
 templates:
   # Wenn leer oder nicht gesetzt, wird das Built-in-Template verwendet.
   alert_subject: ""
   alert_body: ""
+  alert_body_html: ""         # HTML-Tabelle mit farbiger Kopfzeile
   resolved_subject: ""
   resolved_body: ""
+  resolved_body_html: ""      # HTML mit gruener Kopfzeile
   whatsapp_text: ""

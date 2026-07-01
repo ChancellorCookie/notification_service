@@ -54,6 +54,7 @@ say "Schritt 3/6: Monitoring-API"
 
 ask "API-URL (z.B. https://lcc.ieu.local/api/v2/incidents):" api_url
 api_url=${api_url:-https://lcc.ieu.local/api/v2/incidents}
+lcc_base=$(echo "$api_url" | sed 's|/api/v2/.*||')
 
 ask "Auth-Typ (oauth2/bearer/basic/none):" auth_type
 auth_type=${auth_type:-oauth2}
@@ -63,8 +64,9 @@ if [ "$auth_type" = "oauth2" ]; then
     token_url=${token_url:-https://lcc.ieu.local/oauth/token}
     ask "Client-ID:" oauth_client_id
     ask "Client-Secret:" oauth_client_secret
-    ask "Scope (z.B. openid):" oauth_scope
-    ask "Audience (Leer fuer keine):" oauth_audience
+    ask "Scope (z.B. openid audience:server:client_id:lcc-api):" oauth_scope
+    oauth_scope=${oauth_scope:-"openid audience:server:client_id:lcc-api"}
+    ask "Audience (Leer lassen - ist bereits im Scope-String):" oauth_audience
 elif [ "$auth_type" = "bearer" ]; then
     ask "Bearer-Token:" api_token
 elif [ "$auth_type" = "basic" ]; then
@@ -75,8 +77,8 @@ fi
 ask "TLS verifizieren? (true / Pfad zur CA / false):" tls_verify
 tls_verify=${tls_verify:-true}
 
-ask "Incident-URL-Template (z.B. https://lcc.ieu.local/incidents/{id}):" url_tpl
-url_tpl=${url_tpl:-https://lcc.ieu.local/incidents/{id}}
+ask "Incident-URL-Template (z.B. https://lcc.ieu.local/error-history):" url_tpl
+url_tpl=${url_tpl:-https://lcc.ieu.local/error-history}
 
 ask "Nur diese Severities (Komma-getrennt, z.B. error,alert,warning):" severities
 severities=${severities:-error,alert,warning}
@@ -88,18 +90,25 @@ query_params=${query_params:-lifecycle=open}
 echo ""
 say "Schritt 4/6: E-Mail-Kanal"
 
-ask "E-Mail-Kanal aktivieren? (j/N):" enable_email
+ask "E-Mail-Kanal aktivieren? (J/n):" enable_email
+enable_email=${enable_email:-j}
 if [ "${enable_email,,}" = "j" ] || [ "${enable_email,,}" = "ja" ] || [ "${enable_email,,}" = "y" ]; then
-    ask "SMTP-Host:" smtp_host
-    ask "SMTP-Port (587):" smtp_port
-    smtp_port=${smtp_port:-587}
-    ask "STARTTLS? (j/N):" starttls
-    use_starttls="true"
-    [ "${starttls,,}" != "j" ] && [ "${starttls,,}" != "ja" ] && [ "${starttls,,}" != "y" ] && use_starttls="false"
-    ask "SMTP-Benutzername:" smtp_user
+    ask "SMTP-Host (host265.alfahosting-server.de):" smtp_host
+    smtp_host=${smtp_host:-host265.alfahosting-server.de}
+    ask "SMTP-Port (465):" smtp_port
+    smtp_port=${smtp_port:-465}
+    use_ssl="true"
+    if [ "$smtp_port" = "587" ]; then
+        use_ssl="false"
+        use_starttls="true"
+    fi
+    ask "SMTP-Benutzername (web23358489p71):" smtp_user
+    smtp_user=${smtp_user:-web23358489p71}
     ask "SMTP-Passwort:" smtp_pass
-    ask "Absender-Adresse (From):" from_addr
-    ask "Empfaenger (Komma-getrennt):" to_addrs
+    ask "Absender-Adresse (laboperator@iuta.de):" from_addr
+    from_addr=${from_addr:-laboperator@iuta.de}
+    ask "Empfaenger (laboperator@iuta.de):" to_addrs
+    to_addrs=${to_addrs:-laboperator@iuta.de}
 else
     info "E-Mail uebersprungen."
 fi
@@ -221,11 +230,12 @@ if [ "${enable_email,,}" = "j" ] || [ "${enable_email,,}" = "ja" ] || [ "${enabl
         [ -n "$t" ] && to_yaml+="      - \"$t\""$'\n'
     done
     email_channel="
-  email_lab_lead:
+  email_lab:
     type: email
     smtp_host: \"${smtp_host}\"
     smtp_port: ${smtp_port}
-    use_starttls: ${use_starttls}
+    use_ssl: ${use_ssl}
+    use_starttls: false
     username: \${SMTP_USER}
     password: \${SMTP_PASS}
     from_addr: \"${from_addr}\"
@@ -267,7 +277,7 @@ fi
 
 # Channel-Liste fuer Eskalation
 channel_list=""
-[ -n "$email_channel" ] && channel_list="email_lab_lead"
+[ -n "$email_channel" ] && channel_list="email_lab"
 [ -n "$wa_channel" ] && channel_list="${channel_list:+$channel_list, }whatsapp_lab_lead"
 
 # Eskalations-Stufen
@@ -325,8 +335,6 @@ ${qp_yaml}  pagination:
       strict_audited: strictAudited
       active: active
       event_id: eventId
-      updated_at: updatedAt
-      closed_at: closedAt
       high_high_limit: highHighLimit
       high_limit: highLimit
       low_limit: lowLimit
@@ -335,6 +343,11 @@ ${qp_yaml}  pagination:
 ${sev_yaml}  report_incident:
     enabled: false
     url_template: "{base_url}/lads/alarms/{incident_id}/report"
+  rooms:
+    enabled: true
+    url: "${lcc_base}/api/v2/rooms"
+    items_path: "data"
+    cache_seconds: 300
 
 ${esc_block}
 

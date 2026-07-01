@@ -9,13 +9,13 @@
 .tpl-main { flex: 1; min-width: 0; }
 .tpl-sidebar { width: 260px; flex-shrink: 0; }
 .tpl-sidebar .card { position: sticky; top: 24px; }
-.tpl-sidebar code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
-.tpl-sidebar dt { font-weight: 600; font-size: 13px; margin-top: 8px; }
-.tpl-sidebar dd { font-size: 12px; color: #666; margin-left: 0; margin-bottom: 4px; }
+.tpl-sidebar code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 12px; border: 1px solid var(--border); }
+.tpl-sidebar dt { font-weight: 600; font-size: 13px; margin-top: 8px; color: var(--text); }
+.tpl-sidebar dd { font-size: 12px; color: var(--text-muted); margin-left: 0; margin-bottom: 4px; }
 .tpl-section { margin-bottom: 24px; }
-.tpl-section h3 { font-size: 14px; margin-bottom: 8px; color: #333; }
-.tpl-section textarea { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; min-height: 120px; }
-.tpl-section .hint { font-size: 11px; color: #999; margin-top: 4px; }
+.tpl-section h3 { font-size: 14px; margin-bottom: 8px; color: var(--text); }
+.tpl-section textarea { font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; min-height: 120px; }
+.tpl-section .hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 </style>
 
 <form method="POST">
@@ -24,31 +24,43 @@
 
         <div class="card tpl-section">
             <h3>Alert-Betreff</h3>
-            <textarea name="alert_subject" rows="2" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('alert_subject') %}{{ templates.alert_subject }}{% endif %}</textarea>
-            <div class="hint">Built-in: [{severity_label}] [{device_name}] {title}</div>
+            <textarea name="alert_subject" rows="2">{{ templates.get('alert_subject') or defaults.alert_subject }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
         </div>
 
         <div class="card tpl-section">
             <h3>Alert-Body (E-Mail)</h3>
-            <textarea name="alert_body" rows="16" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('alert_body') %}{{ templates.alert_body }}{% endif %}</textarea>
-            <div class="hint">Built-in enthaelt Severity, Titel, Quelle, Geraet, Zeitpunkt, Status, ID, Schwellwerte, Flags, Flattern-Warnung, URL, Handlungsempfehlung und Beschreibung.</div>
+            <textarea name="alert_body" rows="16">{{ templates.get('alert_body') or defaults.alert_body }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
         </div>
 
         <div class="card tpl-section">
             <h3>Entwarnung-Betreff</h3>
-            <textarea name="resolved_subject" rows="2" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('resolved_subject') %}{{ templates.resolved_subject }}{% endif %}</textarea>
-            <div class="hint">Built-in: [ENTWARNUNG] [{device_name}] {title}</div>
+            <textarea name="resolved_subject" rows="2">{{ templates.get('resolved_subject') or defaults.resolved_subject }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
         </div>
 
         <div class="card tpl-section">
             <h3>Entwarnung-Body (E-Mail)</h3>
-            <textarea name="resolved_body" rows="6" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('resolved_body') %}{{ templates.resolved_body }}{% endif %}</textarea>
-            <div class="hint">Built-in enthaelt Titel, Quelle, Geraet und ID.</div>
+            <textarea name="resolved_body" rows="6">{{ templates.get('resolved_body') or defaults.resolved_body }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>Alert-Body HTML (E-Mail)</h3>
+            <textarea name="alert_body_html" rows="16">{{ templates.get('alert_body_html') or defaults.alert_body_html }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
+        </div>
+
+        <div class="card tpl-section">
+            <h3>Entwarnung-Body HTML (E-Mail)</h3>
+            <textarea name="resolved_body_html" rows="6">{{ templates.get('resolved_body_html') or defaults.resolved_body_html }}</textarea>
+            <div class="hint">Built-in. Bearbeiten zum Überschreiben, leeren zum Zurücksetzen.</div>
         </div>
 
         <div class="card tpl-section">
             <h3>WhatsApp-Text</h3>
-            <textarea name="whatsapp_text" rows="8" placeholder="Leer lassen fuer Built-in-Template">{% if templates.get('whatsapp_text') %}{{ templates.whatsapp_text }}{% endif %}</textarea>
+            <textarea name="whatsapp_text" rows="8">{{ templates.get('whatsapp_text') or defaults.whatsapp_text }}</textarea>
             <div class="hint">Nur fuer Sandbox / 24h-Fenster. Produktiv: WhatsApp-Templates separat konfigurieren.</div>
         </div>
 

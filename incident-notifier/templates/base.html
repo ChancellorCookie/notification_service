@@ -1,80 +1,214 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Incident Notifier - {% block title %}Konfiguration{% endblock %}</title>
+    <title>Incident Notifier — {% block title %}Dashboard{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIwIiBmaWxsPSIjNGY0NmU1Ii8+PHBhdGggZD0iTTUwIDE4Yy0xMSAwLTIwIDktMjAgMjB2OGMtMyAzLTUgNi01IDEwaDUwYzAtNC0yLTctNS0xMHYtOGMwLTExLTktMjAtMjAtMjB6IiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI3MCIgcj0iNiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; display: flex; min-height: 100vh; }
-        .sidebar { width: 220px; background: #1a1a2e; color: #fff; padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
-        .sidebar .brand { font-size: 15px; font-weight: bold; padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
-        .sidebar a { display: block; color: #aaa; text-decoration: none; padding: 10px 20px; font-size: 14px; transition: background 0.15s; }
-        .sidebar a:hover { background: rgba(255,255,255,0.06); color: #fff; }
-        .sidebar a.active { background: rgba(255,255,255,0.1); color: #fff; border-left: 3px solid #6c8cff; padding-left: 17px; }
-        .sidebar .nav-section { font-size: 11px; text-transform: uppercase; color: #666; padding: 16px 20px 6px; letter-spacing: 0.5px; }
-        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-        .topbar { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 0 24px; height: 48px; display: flex; align-items: center; font-size: 13px; color: #888; flex-shrink: 0; }
-        .content { padding: 24px; max-width: 900px; flex: 1; overflow-y: auto; }
-        .flash { padding: 10px 16px; border-radius: 4px; margin-bottom: 16px; }
-        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        h1 { font-size: 22px; margin-bottom: 20px; color: #1a1a2e; }
-        h2 { font-size: 16px; margin: 20px 0 10px; color: #444; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 4px; }
-        input[type="text"], input[type="number"], input[type="url"], input[type="password"], select, textarea {
-            width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit;
+        :root {
+            --bg: #f8f9fb;
+            --surface: #fff;
+            --border: #e5e7eb;
+            --text: #1a1a2e;
+            --text-muted: #6b7280;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --green: #10b981;
+            --red: #ef4444;
+            --amber: #f59e0b;
+            --blue: #3b82f6;
+            --sidebar-bg: #111827;
+            --sidebar-text: #9ca3af;
+            --sidebar-active: #4f46e5;
+            --radius: 10px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
         }
-        textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; }
-        select { background: #fff; }
+        .dark {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --sidebar-bg: #020617;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 14px; transition: background 0.2s, color 0.2s; }
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: #fff; padding: 24px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar .brand { font-size: 16px; font-weight: 700; padding: 0 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .sidebar .brand svg { width: 24px; height: 24px; opacity: 0.9; }
+        .sidebar .nav-section { font-size: 10px; text-transform: uppercase; color: #4b5563; padding: 20px 24px 8px; letter-spacing: 1px; font-weight: 600; }
+        .sidebar a { display: flex; align-items: center; gap: 10px; color: var(--sidebar-text); text-decoration: none; padding: 9px 24px; font-size: 13px; font-weight: 500; transition: all 0.15s; border-left: 3px solid transparent; }
+        .sidebar a:hover { background: rgba(255,255,255,0.04); color: #e2e8f0; }
+        .sidebar a.active { background: rgba(99,102,241,0.12); color: #a5b4fc; border-left-color: var(--sidebar-active); }
+        .sidebar a svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+        .sidebar a.active svg { opacity: 1; }
+        .sidebar .footer { margin-top: auto; padding: 16px 24px; }
+        .sidebar .footer button { background: none; border: 1px solid rgba(255,255,255,0.1); color: var(--sidebar-text); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+        .sidebar .footer button:hover { background: rgba(255,255,255,0.06); }
+        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 52px; display: flex; align-items: center; font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+        .topbar svg { width: 14px; height: 14px; margin-right: 6px; opacity: 0.5; }
+        .content { padding: 28px; max-width: 1100px; flex: 1; overflow-y: auto; }
+        h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; letter-spacing: -0.3px; }
+        h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+        .btn { padding: 9px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--red); color: #fff; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+        .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text); }
+        .btn-ghost:hover { background: var(--bg); }
+        label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
+        input[type="text"], input[type="number"], input[type="url"], input[type="password"], select, textarea {
+            width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text); transition: border 0.15s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        textarea { resize: vertical; min-height: 60px; font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; }
+        select { background: var(--surface); }
+        .form-group { margin-bottom: 14px; }
         .inline { display: flex; gap: 12px; align-items: center; }
         .inline label { margin: 0; }
-        .inline input[type="checkbox"] { width: auto; }
-        .btn { padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-        .btn-primary { background: #1a1a2e; color: #fff; }
-        .btn-primary:hover { background: #2d2d4e; }
-        .btn-danger { background: #dc3545; color: #fff; }
-        .btn-sm { padding: 4px 12px; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; }
-        th { font-size: 12px; color: #666; text-transform: uppercase; }
-        .card { background: #fff; border-radius: 6px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-        .badge-ok { background: #d4edda; color: #155724; }
-        .badge-warn { background: #fff3cd; color: #856404; }
-        .badge-err { background: #f8d7da; color: #721c24; }
-        .help { font-size: 12px; color: #888; margin-top: 2px; }
-        .row { margin-bottom: 6px; }
-        .kv-row { display: flex; gap: 8px; align-items: center; }
-        .kv-row input { flex: 1; }
-        .kv-row .kv-del { flex: 0 0 auto; }
-        .add-row { margin-top: 8px; }
-        fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; }
-        legend { font-size: 13px; font-weight: 600; padding: 0 6px; color: #555; }
+        input[type="checkbox"] { width: auto; accent-color: var(--primary); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--border); font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: rgba(0,0,0,0.02); }
+        .dark tr:hover td { background: rgba(255,255,255,0.02); }
+        .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-error { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        .dark .badge-success { background: #064e3b; color: #6ee7b7; }
+        .dark .badge-warning { background: #78350f; color: #fcd34d; }
+        .dark .badge-error { background: #7f1d1d; color: #fca5a5; }
+        .dark .badge-info { background: #1e3a5f; color: #93c5fd; }
+        .help { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+        fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px; }
+        legend { font-size: 13px; font-weight: 600; padding: 0 8px; color: var(--text); }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast { padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease, fadeOut 0.3s ease 3.7s forwards; display: flex; align-items: center; gap: 8px; max-width: 380px; }
+        .toast-success { background: #10b981; color: #fff; }
+        .toast-error { background: #ef4444; color: #fff; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateX(20px); } }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+        .stat-card .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .stat-card .stat-icon { float: right; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .stat-icon.green { background: #d1fae5; color: #065f46; }
+        .stat-icon.amber { background: #fef3c7; color: #92400e; }
+        .stat-icon.blue { background: #dbeafe; color: #1e40af; }
+        .stat-icon.indigo { background: #e0e7ff; color: #3730a3; }
+        .dark .stat-icon.green { background: #064e3b; color: #6ee7b7; }
+        .dark .stat-icon.amber { background: #78350f; color: #fcd34d; }
+        .dark .stat-icon.blue { background: #1e3a5f; color: #93c5fd; }
+        .dark .stat-icon.indigo { background: #312e81; color: #a5b4fc; }
     </style>
 </head>
 <body>
     <aside class="sidebar">
-        <div class="brand">Incident Notifier</div>
-        <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a>
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Notifier
+        </div>
+        <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Dashboard
+        </a>
         <div class="nav-section">Konfiguration</div>
-        <a href="{{ url_for('poll') }}" class="{% if request.endpoint == 'poll' %}active{% endif %}">Poll</a>
-        <a href="{{ url_for('channels') }}" class="{% if request.endpoint == 'channels' %}active{% endif %}">Kanäle</a>
-        <a href="{{ url_for('escalation') }}" class="{% if request.endpoint == 'escalation' %}active{% endif %}">Eskalation</a>
-        <a href="{{ url_for('message_templates') }}" class="{% if request.endpoint == 'message_templates' %}active{% endif %}">Nachrichten</a>
-        <a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">Einstellungen</a>
+        <a href="{{ url_for('poll') }}" class="{% if request.endpoint == 'poll' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Poll
+        </a>
+        <a href="{{ url_for('channels') }}" class="{% if request.endpoint == 'channels' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Kanäle
+        </a>
+        <a href="{{ url_for('escalation') }}" class="{% if request.endpoint == 'escalation' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Eskalation
+        </a>
+        <a href="{{ url_for('message_templates') }}" class="{% if request.endpoint == 'message_templates' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Nachrichten
+        </a>
+        <a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            System
+        </a>
+        <div class="nav-section">Verlauf</div>
+        <a href="{{ url_for('history') }}" class="{% if request.endpoint == 'history' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Sendeverlauf
+        </a>
+        <div class="footer">
+            <button onclick="toggleTheme()" title="Umschalten Hell/Dunkel">
+                <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <span id="theme-label">Dunkel</span>
+            </button>
+        </div>
     </aside>
     <div class="main">
-        <div class="topbar">Konfiguration &rsaquo; {% block breadcrumb %}Dashboard{% endblock %}</div>
+        <div class="topbar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {% block breadcrumb %}Dashboard{% endblock %}
+        </div>
         <div class="content">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% for cat, msg in messages %}
-            <div class="flash {{ cat }}">{{ msg }}</div>
-            {% endfor %}
-            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </div>
+    <div class="toast-container" id="toasts"></div>
+    <script>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        showToast('{{ msg|replace("'", "\\'") }}', '{{ cat }}');
+        {% endfor %}
+        {% endwith %}
+
+        function showToast(msg, type) {
+            const container = document.getElementById('toasts');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + (type === 'error' ? 'error' : 'success');
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            const label = document.getElementById('theme-label');
+            if (html.classList.contains('light')) {
+                html.classList.replace('light', 'dark');
+                icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+                label.textContent = 'Hell';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                html.classList.replace('dark', 'light');
+                icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+                label.textContent = 'Dunkel';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.replace('light', 'dark');
+                document.getElementById('theme-icon').innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+                document.getElementById('theme-label').textContent = 'Hell';
+            }
+        })();
+    </script>
 </body>
 </html>
