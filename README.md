@@ -1,100 +1,115 @@
-# Incident-Notifier
+# Incident Notifier
 
-Ein schlanker Hintergrunddienst für Ubuntu, der die REST-API einer Monitoring-Software
-pollt und neue Incidents per **E-Mail** an die Laborleitung schickt — **mit Direktlink zum
-Incident**, damit dort quittiert werden kann. Optional zeitbasierte Erinnerung, solange ein
-Vorfall offen bleibt. WhatsApp ist als zusätzlicher Kanal vorbereitet (Code liegt bei).
+Hintergrunddienst, der die LCC API v2 pollt und neue Incidents per E-Mail (Plaintext + HTML)
+an die Laborleitung schickt — angereichert mit Raum- und Kontaktinfos. Die Quittierung
+erfolgt direkt im LCC; der Notifier dokumentiert den Eskalationsschritt via `/report`.
+Optionale zeitbasierte Erinnerungen, solange ein Vorfall offen bleibt. WhatsApp ist als
+zusätzlicher Kanal vorbereitet.
 
 ## Konzept
 
-Die **Quittierung passiert in der Monitoring-Software**, nicht im Dienst. Der Notifier
-verschickt nur die Benachrichtigung mit Link. Sobald ein Vorfall im Tool quittiert oder
-geschlossen ist, verschwindet er aus dem offenen API-Feed → der Dienst stoppt automatisch
-weitere Erinnerungen (und schickt optional eine kurze Entwarnung). Es gibt bewusst **keine**
-eigene Quittierungs-Erkennung, kein Status-Parsing, keinen Reply-Reader.
-
-```mermaid
-flowchart LR
-    A[Monitoring REST-API] -->|poll alle 30s| B[Poller]
-    B -->|Felder mappen + Link bauen + Severity filtern| C[Service-Loop]
-    C --> D{im offenen Feed?}
-    D -->|neu| E[E-Mail Stufe 0 + Link]
-    D -->|noch offen nach X min| F[E-Mail Erinnerung]
-    D -->|verschwunden| G[optional Entwarnung]
-    E --> H[(SQLite-State)]
-    F --> H
-    G --> H
+```
+LCC API v2 → poll alle 30s → Felder mappen → Raum-Daten anreichern
+  → E-Mail (Plaintext + HTML-Tabelle) → /report → SQLite-State
+  → bei Verschwinden → optionale Entwarnung
 ```
 
 Der State (SQLite) verhindert Doppel-Benachrichtigungen über Neustarts hinweg und merkt
-sich, welche Erinnerungsstufe zuletzt gesendet wurde.
+sich die letzte Eskalationsstufe. Ein Sendeverlauf (History) ist über die Web-UI einsehbar.
 
-## Der Link zum Incident
+## Was ist neu (v2)
 
-Zwei Wege, in `config.yaml` unter `poll`:
-
-- **Aus einem API-Feld:** `response.fields.url: "permalink"` (falls die API einen Link liefert).
-- **Als Vorlage:** `incident_url_template: "https://monitoring.local/incidents/{id}"` —
-  `{id}` wird durch die Incident-ID ersetzt.
-
-Der Link landet in der E-Mail („Zum Quittieren öffnen: …").
-
-## Eskalation (rein zeitbasiert)
-
-Unter `escalation.stages` definierst du pro Severity Stufen. `after_minutes` ist die Wartezeit
-seit der vorigen Stufe, *sofern der Vorfall noch im offenen Feed steht*. Beispiel: sofort eine
-Mail, nach 15 Min eine Erinnerung, falls noch nicht quittiert. Später lässt sich eine spätere
-Stufe einfach auf einen WhatsApp-Kanal legen.
+- **OAuth2 Client Credentials** mit Dex/OIDC (Scope + Audience als ein String)
+- **HTML-Mails** mit farbiger Severity-Tabelle, Raum/Kontakt-Infos und "Im LCC öffnen"-Button
+- **Raum-Anreicherung:** `GET /rooms/` matching über Monitoring-Pfade → `{room_name}`, `{room_contact_name}` etc.
+- **Report-Incident:** `POST /lads/alarms/{id}/report` nach erfolgreicher Benachrichtigung
+- **Web-UI-Redesign:** Dark Mode, SVG-Icons, Toast-Notifications, Live-Dashboard
+- **Sendeverlauf:** Tabelle aller versendeten Nachrichten mit Zeitstempel, Severity, Kanal
+- **Crash-Alerting:** E-Mail bei Dienst-Absturz via systemd `OnFailure=`
+- **Interaktiver Installer:** `deploy.sh` mit Defaults für Alfahosting-SMTP
 
 ## Installation (Ubuntu)
 
 ```bash
-sudo useradd --system --home /opt/incident-notifier --shell /usr/sbin/nologin incident-notifier
-sudo mkdir -p /opt/incident-notifier /etc/incident-notifier
-sudo cp -r notifier run.py requirements.txt /opt/incident-notifier/
+# Repo nach /opt kopieren
+sudo cp -r incident-notifier /opt/incident-notifier
 
-sudo python3 -m venv /opt/incident-notifier/venv
-sudo /opt/incident-notifier/venv/bin/pip install -r /opt/incident-notifier/requirements.txt
-
-sudo cp config.example.yaml /etc/incident-notifier/config.yaml
-sudo cp secrets.env.example /etc/incident-notifier/secrets.env
-sudo chmod 600 /etc/incident-notifier/secrets.env
-sudo chown -R incident-notifier:incident-notifier /opt/incident-notifier /etc/incident-notifier
-
-sudo cp incident-notifier.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now incident-notifier
-journalctl -u incident-notifier -f
+# Interaktiven Installer ausführen
+cd /opt/incident-notifier
+sudo bash deploy.sh
 ```
 
-Für den E-Mail-only-Start brauchst du `twilio` aus den requirements **nicht** (auskommentiert lassen).
+Der Installer fragt alle Werte ab (API-URL, OAuth2-Credentials, SMTP, Eskalation)
+und schreibt `/etc/incident-notifier/config.yaml` + `secrets.env`.
 
-## Anpassung an deine Monitoring-API
-
-Der einzige Pflicht-Eingriff ist `poll.response` in der `config.yaml`: `items_path` zeigt auf
-das Array der Incidents, unter `fields` ordnest du die API-Felder zu. Kein Code nötig.
-
-Test ohne systemd:
+### Manuell testen
 
 ```bash
-INCIDENT_NOTIFIER_CONFIG=./config.yaml python run.py
+cd /opt/incident-notifier
+source venv/bin/activate
+OAUTH_CLIENT_SECRET="…" SMTP_USER="…" SMTP_PASS="…" python run.py /etc/incident-notifier/config.yaml
 ```
 
-## WhatsApp später hinzufügen
+## Web-UI
 
-Der Code für WhatsApp liegt bereits bei (`whatsapp_twilio`, `whatsapp_meta`). Wichtig, falls
-ihr das aktiviert: WhatsApp erlaubt vom System initiierte Nachrichten nur über einen Anbieter
-(Twilio oder Meta Cloud API) und außerhalb eines 24-h-Fensters nur als **vorab freigegebenes
-Template**, nicht als Freitext. Eine einfachere Alternative wäre Telegram (kostenlose Bot-API
-ohne Template-Zwang) — bei Bedarf ergänze ich einen Telegram-Kanal.
+Erreichbar unter `http://<host>:5080` nach der Installation:
+
+| Tab | Funktion |
+|-----|----------|
+| Dashboard | Live-Stats (aktive Incidents, gesendete Nachrichten, letzter Poll) |
+| Poll | API-URL, Auth (OAuth2/Bearer/Basic), Interval, Query-Params |
+| Kanäle | E-Mail/WhatsApp-Kanäle anlegen, bearbeiten, löschen |
+| Eskalation | Severity → Wartezeit → Kanal-Zuordnung |
+| Nachrichten | Templates für Betreff, Body (Text + HTML), WhatsApp |
+| System | Logging-Level, State-DB-Pfad |
+| Sendeverlauf | Chronologische Tabelle aller versendeten Nachrichten |
+
+### Templates
+
+Platzhalter in `{variable}`-Syntax, identisch für Text- und HTML-Templates.
+Built-in-Templates werden im Editor angezeigt und können überschrieben werden.
+Leeren setzt auf Built-in zurück.
+
+Verfügbare Platzhalter: `{severity}`, `{severity_label}`, `{title}`, `{source}`,
+`{device_name}`, `{room_name}`, `{room_number}`, `{room_contact_name}`,
+`{room_contact_email}`, `{room_contact_details}`, `{timestamp}`, `{status}`,
+`{id}`, `{url}`, `{help}`, `{comment}`, `{flags}`, `{threshold_list}`,
+`{flap_warning}`, `{max_severity}`, `{max_severity_label}`, `{active}`,
+`{acknowledged}`, `{confirmed}`, `{reported}`, `{strict_audited}`,
+`{event_id}`, `{flap_count}`, `{high_high_limit}`, `{high_limit}`,
+`{low_limit}`, `{low_low_limit}`
+
+HTML-spezifisch: `{severity_bg}`, `{severity_fg}`, `{t_limits}`, `{t_flags}`, `{t_help}`
+
+## Eskalation
+
+Unter `escalation.stages` definierst du pro Severity Stufen. `after_minutes` ist die
+Wartezeit seit der vorigen Stufe, sofern der Vorfall noch im offenen Feed steht.
+
+```yaml
+escalation:
+  stages:
+    error:
+      - { after_minutes: 0,  channels: ["email_lab"] }
+    warning:
+      - { after_minutes: 0,  channels: ["email_lab"] }
+      - { after_minutes: 30, channels: ["email_lab"] }
+```
+
+## Crash-Alerting
+
+Crash der Dienst unerwartet, triggert systemd `OnFailure=` eine separate Unit
+(`incident-notifier-crash-alert.service`), die eine E-Mail mit Hostname,
+Zeitstempel und Exit-Code an den ersten konfigurierten E-Mail-Kanal sendet.
 
 ## Sicherheit
 
-- Secrets nur in `secrets.env` (chmod 600), nie in der YAML oder im Git.
-- Interne TLS-CA über `verify_tls: "/pfad/zur/ca.pem"` statt `verify_tls: false`.
-- Der systemd-Unit ist gehärtet (`ProtectSystem`, `NoNewPrivileges` usw.).
+- Secrets nur in `secrets.env` (chmod 600), nie in der YAML oder im Git
+- `${VAR}`-Substitution in der Config für alle sensiblen Werte
+- systemd-Unit gehärtet (`ProtectSystem=strict`, `NoNewPrivileges`, `PrivateTmp`)
+- Interne TLS-CA über `verify_tls: "/pfad/zur/ca.pem"` möglich
 
 ## Erweiterbar
 
-Neuer Kanal: Klasse von `Channel` ableiten, `send(inc, kind)` implementieren, in
-`notifier/channels/__init__.py` registrieren (Telegram, Teams, Slack, SMS …).
+Neuer Kanal: Klasse von `Channel` ableiten, `send(inc, kind)` implementieren,
+in `notifier/channels/__init__.py` registrieren (Telegram, Teams, Slack, SMS …).
