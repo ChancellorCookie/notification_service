@@ -1,0 +1,9 @@
+[Unit]
+Description=Incident Notifier Crash Alert
+
+[Service]
+Type=oneshot
+User=incident-notifier
+Group=incident-notifier
+EnvironmentFile=/etc/incident-notifier/secrets.env
+ExecStart=/opt/incident-notifier/venv/bin/python /opt/incident-notifier/crash-alert.py %i

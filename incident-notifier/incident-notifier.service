@@ -2,6 +2,7 @@
 Description=Incident Notifier (Monitoring -> E-Mail/WhatsApp)
 After=network-online.target
 Wants=network-online.target
+OnFailure=incident-notifier-crash-alert.service
 
 [Service]
 Type=simple
@@ -10,7 +11,7 @@ Group=incident-notifier
 WorkingDirectory=/opt/incident-notifier
 EnvironmentFile=/etc/incident-notifier/secrets.env
 ExecStart=/opt/incident-notifier/venv/bin/python /opt/incident-notifier/run.py /etc/incident-notifier/config.yaml
-Restart=on-failure
+Restart=always
 RestartSec=10
 # Haertung
 NoNewPrivileges=true

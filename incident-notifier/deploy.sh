@@ -374,6 +374,7 @@ say "Setze Berechtigungen + installiere systemd-Unit"
 
 chown -R "$SVC_USER:$SVC_USER" "$APP_DIR" "$CONF_DIR"
 cp "$APP_DIR/incident-notifier.service" /etc/systemd/system/
+cp "$APP_DIR/incident-notifier-crash-alert.service" /etc/systemd/system/
 systemctl daemon-reload
 
 if systemctl is-active --quiet "$SVC_NAME"; then
