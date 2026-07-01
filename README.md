@@ -28,7 +28,34 @@ sich die letzte Eskalationsstufe. Ein Sendeverlauf (History) ist über die Web-U
 - **Crash-Alerting:** E-Mail bei Dienst-Absturz via systemd `OnFailure=`
 - **Interaktiver Installer:** `deploy.sh` mit Defaults für Alfahosting-SMTP
 
-## Installation (Ubuntu)
+## Installation
+
+### Docker (empfohlen)
+
+```bash
+# Repo klonen
+git clone https://github.com/ChancellorCookie/notification_service.git
+cd notification_service/incident-notifier
+
+# Config vorbereiten
+mkdir -p config data
+cp config.example.yaml config/config.yaml
+cp secrets.env.example config/secrets.env
+# config.yaml und secrets.env anpassen (Editor deiner Wahl)
+
+# Bauen & starten
+docker compose up -d
+
+# Logs
+docker compose logs -f
+```
+
+Die Web-UI ist unter `http://<host>:5080` erreichbar.
+Config und State-DB liegen in `./config/` bzw. `./data/` auf dem Host.
+
+### systemd (Ubuntu)
+
+### systemd (Ubuntu)
 
 ```bash
 # Repo nach /opt kopieren
@@ -39,8 +66,8 @@ cd /opt/incident-notifier
 sudo bash deploy.sh
 ```
 
-Der Installer fragt alle Werte ab (API-URL, OAuth2-Credentials, SMTP, Eskalation)
-und schreibt `/etc/incident-notifier/config.yaml` + `secrets.env`.
+Der Installer fragt alle Werte ab und schreibt die Konfiguration nach
+`/etc/incident-notifier/`. Web-UI auf Port 5080.
 
 ### Manuell testen
 

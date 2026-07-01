@@ -120,7 +120,7 @@ channels:
   #   content_sid: "${TWILIO_CONTENT_SID}"
 
 state:
-  db_path: "/var/lib/incident-notifier/state.db"
+  db_path: "/data/state.db"
 
 logging:
   level: "INFO"

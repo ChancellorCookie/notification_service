@@ -6,7 +6,7 @@ services:
     ports:
       - "5080:5080"
     volumes:
-      - ./config:/config:ro
+      - ./config:/config
       - ./data:/data
     env_file:
       - ./config/secrets.env
