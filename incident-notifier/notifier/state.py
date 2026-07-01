@@ -47,6 +47,12 @@ class StateStore:
             """
         )
         self.conn.commit()
+        # Migration: digest_pending column for hybrid mode
+        try:
+            self.conn.execute("ALTER TABLE incidents ADD COLUMN digest_pending INTEGER NOT NULL DEFAULT 0")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     def get(self, key: str):
         row = self.conn.execute(
