@@ -47,7 +47,7 @@ def index():
     state.close()
 
     for item in history:
-        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%Y-%m-%d %H:%M:%S")
+        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%d.%m.%Y %H:%M:%S")
     stats = {
         "active_incidents": len(active),
         "total_sent": len(history),
@@ -103,7 +103,7 @@ def history():
     state.close()
 
     for item in items:
-        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%Y-%m-%d %H:%M:%S")
+        item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%d.%m.%Y %H:%M:%S")
     return render_template("history.html", items=items)
 
 
