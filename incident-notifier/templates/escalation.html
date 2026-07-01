@@ -6,6 +6,20 @@
 
 <form method="POST" id="esc-form">
 <div class="card">
+    <h2>Modus</h2>
+    <div class="form-group">
+        <label>Sofort benachrichtigen (Severities, Komma-getrennt)</label>
+        <input type="text" name="immediate" value="{{ escalation.get('immediate', ['error', 'alert']) | join(', ') }}" placeholder="error, alert">
+        <span class="help">Diese Severities gehen sofort raus. Alle anderen landen im Digest.</span>
+    </div>
+    <div class="form-group">
+        <label>Digest-Intervall (Minuten)</label>
+        <input type="number" name="digest_interval" value="{{ escalation.get('digest_interval_minutes', 60) }}" min="5">
+        <span class="help">Wie oft der Digest mit gebündelten Incidents gesendet wird.</span>
+    </div>
+</div>
+
+<div class="card">
     <div class="form-group">
         <label class="inline">
             <input type="checkbox" name="notify_on_resolved" value="1" {% if escalation.get('notify_on_resolved') %}checked{% endif %}>

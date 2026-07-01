@@ -1,15 +1,7 @@
 """Hauptdienst: pollt die API, benachrichtigt pro Vorfall, optional mit
 zeitbasierter Erinnerung (Eskalation), solange der Vorfall offen bleibt.
 
-Die Quittierung passiert in der Monitoring-Software selbst. Sobald ein Vorfall
-dort quittiert/geschlossen ist, taucht er nicht mehr im offenen Feed auf -> der
-Dienst stoppt automatisch weitere Erinnerungen und schickt optional eine
-Entwarnung. Es gibt KEINE eigene Quittierungs-Erkennung im Dienst.
-
-Robustheit:
-- Ein Fehler bei einem einzelnen Incident oder Kanal beendet nicht die Schleife.
-- Sende-Versuche werden mit exponentiellem Backoff wiederholt.
-- SIGTERM/SIGINT fuehren zu sauberem Shutdown (gut fuer systemd).
+Hybrid-Modus: ERROR/ALERT sofort, WARNING/INFO/NOTICE im Digest (gebündelt).
 """
 import logging
 import signal
@@ -22,6 +14,9 @@ from .channels import build_channel
 from .models import Incident
 
 log = logging.getLogger("notifier.service")
+
+_IMMEDIATE_DEFAULT = ["error", "alert"]
+_DIGEST_INTERVAL_DEFAULT = 60
 
 
 def _retry(fn, attempts=3, base_delay=2.0):
@@ -52,6 +47,10 @@ class Service:
         self.stages = esc.get("stages", {})
         self.notify_on_resolved = bool(esc.get("notify_on_resolved", False))
 
+        self.immediate = [s.lower() for s in esc.get("immediate", _IMMEDIATE_DEFAULT)]
+        self.digest_interval = int(esc.get("digest_interval_minutes", _DIGEST_INTERVAL_DEFAULT))
+        self._last_digest = 0.0
+
         self.channels = {
             name: build_channel(name, ccfg, templates_cfg=self.cfg.get("templates", {}))
             for name, ccfg in self.cfg.get("channels", {}).items()
@@ -80,57 +79,105 @@ class Service:
                 log.error("Kanal '%s' fehlgeschlagen fuer %s: %s", cname, inc.id, e)
         return any_ok
 
+    def _all_channels(self):
+        ch = list(self.channels.keys())
+        if ch:
+            return ch
+        stages_ch = set()
+        for sev_stages in self.stages.values():
+            for s in sev_stages:
+                stages_ch.update(s.get("channels", []))
+        return list(stages_ch)
+
     def _stage_channels(self, severity, idx):
         stages = self.stages.get(severity, [])
         return stages[idx]["channels"] if 0 <= idx < len(stages) else []
 
+    def _is_immediate(self, severity: str) -> bool:
+        return severity.lower() in self.immediate
+
     def _handle_open(self, inc: Incident):
+        rec = self.state.get(inc.id)
+        if rec is not None and rec["state"] == "active":
+            return
+
+        if self._is_immediate(inc.severity):
+            self._handle_immediate(inc)
+        else:
+            self._handle_digest_track(inc)
+
+    def _handle_immediate(self, inc: Incident):
         stages = self.stages.get(inc.severity, [])
         if not stages:
-            all_channels = list(self.channels.keys())
-            if all_channels:
-                if self._send(inc, all_channels):
+            channels = self._all_channels()
+            if channels:
+                if self._send(inc, channels):
                     self.state.start(inc, stage=0)
                     if not inc.reported:
-                        self.poller.report_incident(inc.id, comment=f"Eskaliert per {', '.join(all_channels)}")
+                        self.poller.report_incident(inc.id, comment=f"Eskaliert per {', '.join(channels)}")
             else:
                 self.state.start(inc, stage=0)
             return
-        rec = self.state.get(inc.id)
-        now = time.time()
 
+        if self._send(inc, self._stage_channels(inc.severity, 0)):
+            self.state.start(inc, stage=0)
+            if not inc.reported:
+                self.poller.report_incident(inc.id, comment=f"Eskaliert per {', '.join(self._stage_channels(inc.severity, 0))}")
+
+    def _handle_digest_track(self, inc: Incident):
+        rec = self.state.get(inc.id)
         if rec is None or rec["state"] != "active":
-            # Neuer (oder wieder aufgetauchter) Vorfall -> Stufe 0
-            if self._send(inc, self._stage_channels(inc.severity, 0)):
-                self.state.start(inc, stage=0)
-                if not inc.reported:
-                    self.poller.report_incident(inc.id,
-                        comment=f"Eskaliert per {', '.join(self._stage_channels(inc.severity, 0))}")
+            self.state.start_digest(inc)
+            if not inc.reported:
+                self.poller.report_incident(inc.id, comment="Für Digest vorgemerkt")
+            log.info("Incident %s (%s) fuer Digest vorgemerkt", inc.id, inc.severity)
+
+    def _send_digest(self):
+        pending = self.state.digest_pending()
+        if not pending:
             return
 
-        # Bereits aktiv -> ggf. naechste Erinnerungsstufe, wenn Zeit abgelaufen
-        nxt = rec["stage"] + 1
-        if nxt < len(stages):
-            wait = float(stages[nxt].get("after_minutes", 0)) * 60.0
-            if now - rec["stage_sent_at"] >= wait:
-                if self._send(inc, self._stage_channels(inc.severity, nxt)):
-                    self.state.advance(inc.id, nxt)
+        all_ch = self._all_channels()
+        if not all_ch:
+            return
+
+        incidents = [self._rec_to_inc(r) for r in pending]
+        log.info("Sende Digest mit %d Incidents", len(incidents))
+        self.state.mark_digest_sent()
+
+        from . import formatting
+        for cname in all_ch:
+            channel = self.channels.get(cname)
+            if channel is None:
+                continue
+            try:
+                for inc in incidents:
+                    kind = "resolved" if inc.status.lower() == "resolved" else "digest"
+                inc = incidents[0]
+                channel.send_digest(incidents)
+                for inc in incidents:
+                    self.state.log_send(inc.id, cname, "digest", inc.title, inc.severity)
+                log.info("Digest mit %d Incidents ueber Kanal '%s'", len(incidents), cname)
+            except Exception as e:
+                log.error("Digest-Kanal '%s' fehlgeschlagen: %s", cname, e)
+
+    def _rec_to_inc(self, rec: dict) -> Incident:
+        return Incident(
+            id=rec["key"], title=rec.get("title") or rec["key"],
+            severity=rec.get("severity") or "info", source=rec.get("source") or "",
+        )
 
     def _handle_disappeared(self):
-        """Aktive Vorfaelle, die nicht mehr im offenen Feed sind = quittiert/geschlossen."""
         for rec in self.state.active():
             if rec["key"] in self._open_keys:
                 continue
             self.state.set_state(rec["key"], "resolved")
             log.info("Incident %s nicht mehr offen (quittiert/geschlossen)", rec["key"])
             if self.notify_on_resolved:
-                inc = Incident(
-                    id=rec["key"], title=rec.get("title") or rec["key"],
-                    severity=rec.get("severity") or "info", source=rec.get("source") or "",
-                )
+                inc = self._rec_to_inc(rec)
                 channels = self._stage_channels(inc.severity, 0)
                 if not channels:
-                    channels = list(self.channels.keys())
+                    channels = self._all_channels()
                 if channels:
                     self._send(inc, channels, kind="resolved")
 
@@ -142,10 +189,15 @@ class Service:
             self._handle_open(inc)
         self._handle_disappeared()
 
+        now = time.time()
+        if now - self._last_digest >= self.digest_interval * 60:
+            self._send_digest()
+            self._last_digest = now
+
     def run(self):
         interval = int(self.cfg["poll"].get("interval_seconds", 30))
-        log.info("Dienst gestartet (Intervall %ds, Kanaele: %s)",
-                 interval, ", ".join(self.channels) or "keine")
+        log.info("Dienst gestartet (Intervall %ds, Digest alle %dmin, Kanaele: %s)",
+                 interval, self.digest_interval, ", ".join(self.channels) or "keine")
 
         webui = self.cfg.get("webui", {})
         if webui.get("enabled", True):

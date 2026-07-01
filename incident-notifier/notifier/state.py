@@ -28,7 +28,8 @@ class StateStore:
                 state         TEXT NOT NULL,       -- active | acknowledged | resolved
                 severity      TEXT,
                 title         TEXT,
-                source        TEXT
+                source        TEXT,
+                digest_pending INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -57,14 +58,30 @@ class StateStore:
         now = time.time()
         self.conn.execute(
             """
-            INSERT INTO incidents (key, first_seen, stage, stage_sent_at, state, severity, title, source)
-            VALUES (?, ?, ?, ?, 'active', ?, ?, ?)
+            INSERT INTO incidents (key, first_seen, stage, stage_sent_at, state, severity, title, source, digest_pending)
+            VALUES (?, ?, ?, ?, 'active', ?, ?, ?, 0)
             ON CONFLICT(key) DO UPDATE SET
                 stage=excluded.stage, stage_sent_at=excluded.stage_sent_at,
                 state='active', severity=excluded.severity,
                 title=excluded.title, source=excluded.source
             """,
             (inc.id, now, stage, now, inc.severity, inc.title, inc.source),
+        )
+        self.conn.commit()
+
+    def start_digest(self, inc):
+        now = time.time()
+        self.conn.execute(
+            """
+            INSERT INTO incidents (key, first_seen, stage, stage_sent_at, state, severity, title, source, digest_pending)
+            VALUES (?, ?, 0, ?, 'active', ?, ?, ?, 1)
+            ON CONFLICT(key) DO UPDATE SET
+                stage=0, stage_sent_at=excluded.stage_sent_at,
+                state='active', severity=excluded.severity,
+                title=excluded.title, source=excluded.source,
+                digest_pending=1
+            """,
+            (inc.id, now, now, inc.severity, inc.title, inc.source),
         )
         self.conn.commit()
 
@@ -86,6 +103,18 @@ class StateStore:
             "SELECT * FROM incidents WHERE state='active'"
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def digest_pending(self):
+        rows = self.conn.execute(
+            "SELECT * FROM incidents WHERE state='active' AND digest_pending=1"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_digest_sent(self):
+        self.conn.execute(
+            "UPDATE incidents SET digest_pending=0 WHERE digest_pending=1"
+        )
+        self.conn.commit()
 
     def close(self):
         self.conn.close()

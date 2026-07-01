@@ -285,6 +285,8 @@ esc_block=""
 if [ -n "$channel_list" ]; then
     esc_block="escalation:
   notify_on_resolved: ${notify_resolved}
+  immediate: [error, alert]
+  digest_interval_minutes: 60
   stages:
     error:
       - { after_minutes: 0, channels: [${channel_list}] }

@@ -31,20 +31,38 @@ class EmailChannel(Channel):
         msg["Subject"] = subject
         msg.set_content(body)
         msg.add_alternative(body_html, subtype="html")
+        self._deliver(c, msg)
 
+    def send_digest(self, incidents: list[Incident]) -> None:
+        c = self.config
+        tpl = self.templates_cfg
+        subject = f"[DIGEST] {len(incidents)} offene Incidents"
+        body = formatting.digest_body(incidents, tpl)
+        body_html = formatting.digest_body_html(incidents, tpl)
+
+        msg = EmailMessage()
+        msg["From"] = c["from_addr"]
+        msg["To"] = ", ".join(c["to_addrs"])
+        msg["Subject"] = subject
+        msg.set_content(body)
+        msg.add_alternative(body_html, subtype="html")
+        self._deliver(c, msg)
+
+    @staticmethod
+    def _deliver(c, msg):
         host = c["smtp_host"]
         port = int(c.get("smtp_port", 587))
         timeout = int(c.get("timeout_seconds", 15))
 
-        if c.get("use_ssl"):  # SMTPS (Port 465)
+        if c.get("use_ssl"):
             ctx = ssl.create_default_context()
             with smtplib.SMTP_SSL(host, port, timeout=timeout, context=ctx) as s:
-                self._auth_and_send(s, c, msg)
+                EmailChannel._auth_and_send(s, c, msg)
         else:
             with smtplib.SMTP(host, port, timeout=timeout) as s:
                 if c.get("use_starttls", True):
                     s.starttls(context=ssl.create_default_context())
-                self._auth_and_send(s, c, msg)
+                EmailChannel._auth_and_send(s, c, msg)
 
     @staticmethod
     def _auth_and_send(s, c, msg):

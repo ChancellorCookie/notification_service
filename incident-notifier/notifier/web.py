@@ -313,6 +313,11 @@ def _handle_channels_save(cfg: dict):
 def _handle_escalation_save(cfg: dict):
     esc = cfg.setdefault("escalation", {})
     esc["notify_on_resolved"] = request.form.get("notify_on_resolved") == "1"
+    esc["immediate"] = [s.strip().lower() for s in request.form.get("immediate", "error, alert").split(",") if s.strip()]
+    try:
+        esc["digest_interval_minutes"] = int(request.form.get("digest_interval", 60))
+    except (ValueError, TypeError):
+        esc["digest_interval_minutes"] = 60
     stages = {}
     i = 0
     while True:

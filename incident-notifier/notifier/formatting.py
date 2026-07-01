@@ -328,3 +328,48 @@ def template_variables(inc: Incident) -> dict:
         "3": inc.device_name or inc.source or "-",
         "4": str(inc.id),
     }
+
+
+def digest_body(incidents: list[Incident], templates_cfg: dict | None = None) -> str:
+    lines = [f"DIGEST: {len(incidents)} offene Incidents\n"]
+    for inc in incidents:
+        sev = _SEVERITY_LABEL.get(inc.severity, inc.severity.upper())
+        lines.append(f"[{sev}] {inc.title}")
+        lines.append(f"  Gerät: {inc.device_name}  |  Raum: {inc.room_name or '-'}")
+        lines.append(f"  {inc.url}\n")
+    return "\n".join(lines)
+
+
+def digest_body_html(incidents: list[Incident], templates_cfg: dict | None = None) -> str:
+    rows = []
+    for inc in incidents:
+        color = _SEV_COLORS.get(inc.severity, ("#6c757d", "#fff"))
+        sev = _SEVERITY_LABEL.get(inc.severity, inc.severity.upper())
+        rows.append(f"""<tr>
+<td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;background:{color[0]};color:{color[1]};font-weight:600;font-size:12px;width:80px">{sev}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #e0e0e0">{inc.title}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;white-space:nowrap;font-size:12px;color:#666">{inc.device_name}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;white-space:nowrap;font-size:12px;color:#666">{inc.room_name or '-'}</td>
+</tr>""")
+
+    return f"""<html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:0">
+<table style="width:100%;max-width:700px;border-collapse:collapse" cellpadding="0" cellspacing="0">
+<tr><td style="background:#4f46e5;color:#fff;padding:14px 20px;font-size:16px;font-weight:bold">
+DIGEST: {len(incidents)} offene Incidents
+</td></tr>
+<tr><td style="padding:0;border:1px solid #e0e0e0;border-top:none">
+<table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">
+<tr style="background:#f8f9fa">
+<th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;border-bottom:2px solid #ddd">Severity</th>
+<th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;border-bottom:2px solid #ddd">Meldung</th>
+<th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;border-bottom:2px solid #ddd">Gerät</th>
+<th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;border-bottom:2px solid #ddd">Raum</th>
+</tr>
+{"".join(rows)}
+</table>
+</td></tr>
+<tr><td style="padding:14px 20px;text-align:center;font-size:12px">
+<a href="https://lcc.ieu.local/error-history" style="color:#4f46e5;text-decoration:none">Im LCC öffnen</a>
+</td></tr>
+</table>
+</body></html>"""

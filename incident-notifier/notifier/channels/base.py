@@ -11,9 +11,7 @@ class Channel(ABC):
 
     @abstractmethod
     def send(self, inc: Incident, kind: str = "alert") -> None:
-        """Verschickt eine Benachrichtigung.
-
-        kind: "alert" (neuer/eskalierter Vorfall) oder "resolved" (Entwarnung).
-        Wirft bei Fehlern eine Exception.
-        """
         raise NotImplementedError
+
+    def send_digest(self, incidents: list[Incident]) -> None:
+        return self.send(incidents[0], kind="digest")

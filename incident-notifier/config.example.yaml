@@ -85,10 +85,12 @@ poll:
     items_path: "data"               # gepunkteter Pfad zum Raum-Array
     cache_seconds: 300               # Raeume nur alle 5min neu laden
 
-# Eskalation = nur zeitbasierte Erinnerung, solange der Vorfall offen bleibt.
-# Quittierung passiert im Tool -> Vorfall verschwindet aus dem Feed -> Stopp.
+# Eskalation: Hybrid-Modus
+# ERROR/ALERT gehen sofort raus, WARNING/INFO/NOTICE werden im Digest gebuendelt.
 escalation:
   notify_on_resolved: false          # true = kurze Entwarnung, wenn ein Vorfall verschwindet
+  immediate: ["error", "alert"]      # sofort benachrichtigen, Rest per Digest
+  digest_interval_minutes: 60        # Digest alle N Minuten senden
   stages:
     error:
       - { after_minutes: 0,  channels: ["email_lab"] }
