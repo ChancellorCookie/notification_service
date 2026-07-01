@@ -8,6 +8,10 @@ services:
     volumes:
       - ./config:/config
       - ./data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     env_file:
       - ./config/secrets.env
+    environment:
+      - TZ=Europe/Berlin
 
