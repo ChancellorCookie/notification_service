@@ -13,6 +13,13 @@
         <div class="stat-label">Aktive Incidents</div>
     </div>
     <div class="stat-card">
+        <div class="stat-icon amber" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fef3c7;color:#92400e">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="stat-value">{{ stats.digest_pending }}</div>
+        <div class="stat-label">Im nächsten Digest</div>
+    </div>
+    <div class="stat-card">
         <div class="stat-icon green" style="float:right;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
         </div>

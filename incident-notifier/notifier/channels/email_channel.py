@@ -36,7 +36,9 @@ class EmailChannel(Channel):
     def send_digest(self, incidents: list[Incident], total_active: int = 0) -> None:
         c = self.config
         tpl = self.templates_cfg
-        subject = f"[DIGEST] {total_active} offen ({len(incidents)} neu)"
+        sevs = {inc.severity for inc in incidents}
+        label = "WARNUNG" if "warning" in sevs else "HINWEIS"
+        subject = f"[{label}] {total_active} offen ({len(incidents)} neu)"
         body = formatting.digest_body(incidents, tpl, total_active)
         body_html = formatting.digest_body_html(incidents, tpl, total_active)
 

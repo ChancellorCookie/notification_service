@@ -43,6 +43,7 @@ def index():
     from datetime import datetime
     state = StateStore(db_path)
     active = state.active()
+    digest_pending = state.digest_pending()
     history = state.get_history(50)
     state.close()
 
@@ -50,6 +51,7 @@ def index():
         item["sent_at_str"] = datetime.fromtimestamp(item["sent_at"]).strftime("%d.%m.%Y %H:%M:%S")
     stats = {
         "active_incidents": len(active),
+        "digest_pending": len(digest_pending),
         "total_sent": len(history),
         "channels": len(cfg.get("channels", {})),
         "last_time": datetime.fromtimestamp(history[0]["sent_at"]).strftime("%H:%M") if history else "-",
