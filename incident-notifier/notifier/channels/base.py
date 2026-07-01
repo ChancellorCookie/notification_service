@@ -13,5 +13,5 @@ class Channel(ABC):
     def send(self, inc: Incident, kind: str = "alert") -> None:
         raise NotImplementedError
 
-    def send_digest(self, incidents: list[Incident]) -> None:
+    def send_digest(self, incidents: list[Incident], total_active: int = 0) -> None:
         return self.send(incidents[0], kind="digest")

@@ -33,12 +33,12 @@ class EmailChannel(Channel):
         msg.add_alternative(body_html, subtype="html")
         self._deliver(c, msg)
 
-    def send_digest(self, incidents: list[Incident]) -> None:
+    def send_digest(self, incidents: list[Incident], total_active: int = 0) -> None:
         c = self.config
         tpl = self.templates_cfg
-        subject = f"[DIGEST] {len(incidents)} offene Incidents"
-        body = formatting.digest_body(incidents, tpl)
-        body_html = formatting.digest_body_html(incidents, tpl)
+        subject = f"[DIGEST] {total_active} offen ({len(incidents)} neu)"
+        body = formatting.digest_body(incidents, tpl, total_active)
+        body_html = formatting.digest_body_html(incidents, tpl, total_active)
 
         msg = EmailMessage()
         msg["From"] = c["from_addr"]

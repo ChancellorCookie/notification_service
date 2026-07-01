@@ -330,8 +330,8 @@ def template_variables(inc: Incident) -> dict:
     }
 
 
-def digest_body(incidents: list[Incident], templates_cfg: dict | None = None) -> str:
-    lines = [f"DIGEST: {len(incidents)} offene Incidents\n"]
+def digest_body(incidents: list[Incident], templates_cfg: dict | None = None, total_active: int = 0) -> str:
+    lines = [f"DIGEST: {len(incidents)} neue Incidents ({total_active} insgesamt offen)\n"]
     for inc in incidents:
         sev = _SEVERITY_LABEL.get(inc.severity, inc.severity.upper())
         lines.append(f"[{sev}] {inc.title}")
@@ -340,7 +340,7 @@ def digest_body(incidents: list[Incident], templates_cfg: dict | None = None) ->
     return "\n".join(lines)
 
 
-def digest_body_html(incidents: list[Incident], templates_cfg: dict | None = None) -> str:
+def digest_body_html(incidents: list[Incident], templates_cfg: dict | None = None, total_active: int = 0) -> str:
     rows = []
     for inc in incidents:
         color = _SEV_COLORS.get(inc.severity, ("#6c757d", "#fff"))
@@ -355,7 +355,7 @@ def digest_body_html(incidents: list[Incident], templates_cfg: dict | None = Non
     return f"""<html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:0">
 <table style="width:100%;max-width:700px;border-collapse:collapse" cellpadding="0" cellspacing="0">
 <tr><td style="background:#4f46e5;color:#fff;padding:14px 20px;font-size:16px;font-weight:bold">
-DIGEST: {len(incidents)} offene Incidents
+DIGEST: {len(incidents)} neue Incidents ({total_active} insgesamt offen)
 </td></tr>
 <tr><td style="padding:0;border:1px solid #e0e0e0;border-top:none">
 <table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">

@@ -144,6 +144,7 @@ class Service:
         incidents = [self._rec_to_inc(r) for r in pending]
         log.info("Sende Digest mit %d Incidents", len(incidents))
         self.state.mark_digest_sent()
+        total_active = len(self.state.active())
 
         from . import formatting
         for cname in all_ch:
@@ -151,10 +152,7 @@ class Service:
             if channel is None:
                 continue
             try:
-                for inc in incidents:
-                    kind = "resolved" if inc.status.lower() == "resolved" else "digest"
-                inc = incidents[0]
-                channel.send_digest(incidents)
+                channel.send_digest(incidents, total_active)
                 for inc in incidents:
                     self.state.log_send(inc.id, cname, "digest", inc.title, inc.severity)
                 log.info("Digest mit %d Incidents ueber Kanal '%s'", len(incidents), cname)
