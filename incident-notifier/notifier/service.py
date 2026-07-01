@@ -87,7 +87,14 @@ class Service:
     def _handle_open(self, inc: Incident):
         stages = self.stages.get(inc.severity, [])
         if not stages:
-            log.debug("Keine Stufen fuer Severity '%s', ueberspringe %s", inc.severity, inc.id)
+            log.debug("Keine Stufen fuer Severity '%s' – sende an alle Kanaele", inc.severity)
+            all_channels = list(self.channels.keys())
+            if not all_channels:
+                return
+            if self._send(inc, all_channels):
+                self.state.start(inc, stage=0)
+                if not inc.reported:
+                    self.poller.report_incident(inc.id, comment=f"Eskaliert per {', '.join(all_channels)}")
             return
         rec = self.state.get(inc.id)
         now = time.time()
