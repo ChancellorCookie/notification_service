@@ -52,7 +52,8 @@ def index():
         "active_incidents": len(active),
         "total_sent": len(history),
         "channels": len(cfg.get("channels", {})),
-        "last_poll": datetime.fromtimestamp(history[0]["sent_at"]).strftime("%d.%m.%Y %H:%M") if history else "-",
+        "last_time": datetime.fromtimestamp(history[0]["sent_at"]).strftime("%H:%M") if history else "-",
+        "last_date": datetime.fromtimestamp(history[0]["sent_at"]).strftime("%d.%m.%Y") if history else "",
         "recent": history[:10],
     }
     return render_template("index.html", cfg=cfg, stats=stats)
