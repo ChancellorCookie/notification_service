@@ -121,7 +121,11 @@ class Service:
                     id=rec["key"], title=rec.get("title") or rec["key"],
                     severity=rec.get("severity") or "info", source=rec.get("source") or "",
                 )
-                self._send(inc, self._stage_channels(inc.severity, 0), kind="resolved")
+                channels = self._stage_channels(inc.severity, 0)
+                if not channels:
+                    channels = list(self.channels.keys())
+                if channels:
+                    self._send(inc, channels, kind="resolved")
 
     def run_once(self):
         incidents = self.poller.fetch()
