@@ -50,6 +50,22 @@ class EmailChannel(Channel):
         msg.add_alternative(body_html, subtype="html")
         self._deliver(c, msg)
 
+    def send_resolved(self, inc: Incident, remaining: int = 0) -> None:
+        c = self.config
+        tpl = self.templates_cfg
+        suffix = f" ({remaining} weiterhin offen)" if remaining > 0 else ""
+        subject = formatting.resolved_subject(inc, tpl) + suffix
+        body = formatting.resolved_body(inc, tpl, remaining)
+        body_html = formatting.resolved_body_html(inc, tpl, remaining)
+
+        msg = EmailMessage()
+        msg["From"] = c["from_addr"]
+        msg["To"] = ", ".join(c["to_addrs"])
+        msg["Subject"] = subject
+        msg.set_content(body)
+        msg.add_alternative(body_html, subtype="html")
+        self._deliver(c, msg)
+
     @staticmethod
     def _deliver(c, msg):
         host = c["smtp_host"]

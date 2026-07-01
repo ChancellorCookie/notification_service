@@ -298,9 +298,12 @@ def resolved_subject(inc: Incident, templates_cfg: dict | None = None) -> str:
     return _substitute(tpl, inc)
 
 
-def resolved_body(inc: Incident, templates_cfg: dict | None = None) -> str:
+def resolved_body(inc: Incident, templates_cfg: dict | None = None, remaining: int = 0) -> str:
     tpl = _get_template(templates_cfg, "resolved_body", _RESOLVED_BODY_DEFAULT)
-    return _substitute(tpl, inc)
+    result = _substitute(tpl, inc)
+    if remaining > 0:
+        result += f"\n\n{remaining} Incident(s) weiterhin offen."
+    return result
 
 
 def whatsapp_text(inc: Incident, templates_cfg: dict | None = None) -> str:
@@ -314,9 +317,12 @@ def email_body_html(inc: Incident, templates_cfg: dict | None = None) -> str:
     return _substitute_html(tpl, inc)
 
 
-def resolved_body_html(inc: Incident, templates_cfg: dict | None = None) -> str:
+def resolved_body_html(inc: Incident, templates_cfg: dict | None = None, remaining: int = 0) -> str:
     tpl = _get_template(templates_cfg, "resolved_body_html", _RESOLVED_BODY_HTML_DEFAULT)
-    return _substitute_html(tpl, inc)
+    result = _substitute_html(tpl, inc)
+    if remaining > 0:
+        result = result.replace("</body>", f'<tr><td style="padding:12px 20px;font-size:13px;color:#666">{remaining} Incident(s) weiterhin offen.</td></tr></body>')
+    return result
 
 
 def template_variables(inc: Incident) -> dict:

@@ -177,7 +177,15 @@ class Service:
                 if not channels:
                     channels = self._all_channels()
                 if channels:
-                    self._send(inc, channels, kind="resolved")
+                    remaining = len([r for r in self.state.active() if r["key"] != rec["key"]])
+                    for cname in channels:
+                        channel = self.channels.get(cname)
+                        if channel:
+                            try:
+                                channel.send_resolved(inc, remaining)
+                                self.state.log_send(inc.id, cname, "resolved", inc.title, inc.severity)
+                            except Exception as e:
+                                log.error("Resolved-Kanal '%s' fehlgeschlagen: %s", cname, e)
 
     def run_once(self):
         incidents = self.poller.fetch()

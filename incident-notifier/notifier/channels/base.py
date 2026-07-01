@@ -15,3 +15,6 @@ class Channel(ABC):
 
     def send_digest(self, incidents: list[Incident], total_active: int = 0) -> None:
         return self.send(incidents[0], kind="digest")
+
+    def send_resolved(self, inc: Incident, remaining: int = 0) -> None:
+        self.send(inc, kind="resolved")
